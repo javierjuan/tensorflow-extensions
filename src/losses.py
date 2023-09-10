@@ -213,3 +213,24 @@ class Tversky(tf.keras.losses.Loss):
             'from_logits': self.from_logits
         })
         return config
+
+
+class MaskedSparseCategoricalCrossentropy(tf.keras.losses.SparseCategoricalCrossentropy):
+    def __init__(self, from_logits=False, ignore_class=None, reduction=tf.keras.losses.Reduction.AUTO, name=None):
+        super().__init__(from_logits=from_logits, ignore_class=ignore_class, name=name)
+        self.reduction = reduction
+
+    def call(self, y_true, y_pred):
+        loss = super().call(y_true=y_true, y_pred=y_pred)
+        mask = tf.cast(y_true != 0, dtype=loss.dtype)
+        loss *= mask
+
+        if self.reduction == tf.keras.losses.Reduction.NONE:
+            return loss
+        elif self.reduction == tf.keras.losses.Reduction.SUM:
+            return tf.reduce_sum(loss)
+        elif self.reduction in (tf.keras.losses.Reduction.AUTO, tf.keras.losses.Reduction.SUM_OVER_BATCH_SIZE):
+            return tf.reduce_sum(loss) / tf.reduce_sum(mask)
+        else:
+            raise ValueError(f'Unexpected reduction: {self.reduction}. Possible values are: "NONE", "SUM", '
+                             '"SUM_OVER_BATCH_SIZE" and "AUTO"')
