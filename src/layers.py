@@ -1,5 +1,4 @@
 import tensorflow as tf
-import numpy as np
 
 
 class DenseBlock(tf.keras.layers.Layer):
@@ -775,6 +774,7 @@ class ResidualBlock2D(tf.keras.layers.Layer):
             synchronized=synchronized, axis=axis, kernel_size=kernel_size, strides=strides, padding=padding,
             data_format=data_format, dilation_rate=dilation_rate, convolution_groups=convolution_groups) if attention \
             else None
+        self.add = tf.keras.layers.Add()
         self.adapt_input = None
 
     def build(self, input_shape):
@@ -789,7 +789,7 @@ class ResidualBlock2D(tf.keras.layers.Layer):
         x = self.layer(inputs, training=training)
         if self.attention_block is not None:
             x = self.attention_block(x, training=training)
-        x += self.adapt_input(inputs, training=training) if self.adapt_input is not None else inputs
+        x = self.add([x, self.adapt_input(inputs, training=training) if self.adapt_input is not None else inputs])
         return x
 
     def get_config(self):
@@ -1222,8 +1222,9 @@ class TransformerAttention(tf.keras.layers.Layer):
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
         self.attention_scores = None
+        self.supports_masking = True
 
-        self.self_attention = tf.keras.layers.MultiHeadAttention(
+        self.attention = tf.keras.layers.MultiHeadAttention(
             num_heads=num_heads, key_dim=embedding_dimension, value_dim=None, dropout=dropout, use_bias=use_bias,
             output_shape=output_shape, attention_axes=attention_axes, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -1235,29 +1236,23 @@ class TransformerAttention(tf.keras.layers.Layer):
             beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         self.add = tf.keras.layers.Add()
 
-    @staticmethod
-    def _reshape_attention_mask(mask):
-        if mask is not None:
-            # We assume inputs of the shape [B, T, D], where B is the batch size, T is the number of tokens, and D
-            # is the dimension of the embedding; and mask is of shape [B, T]. Attention mask must be of the shape
-            # [B, T, T]
-            mask = tf.tile(tf.expand_dims(mask, axis=-2), multiples=[1, tf.shape(mask)[-1], 1])
-        return mask
+    def build(self, input_shape):
+        super().build(input_shape=input_shape)
+        if hasattr(self.attention, '_build_from_signature'):
+            self.attention._build_from_signature(query=input_shape, value=input_shape)
 
     def call(self, inputs, context=None, training=False, mask=None, return_attention_scores=False,
              use_causal_mask=False, **kwargs):
         x = self.normalization(inputs)
-        attention_mask = self._reshape_attention_mask(mask=mask)
         context = x if context is None else context
         if return_attention_scores:
-            x, attention_scores = self.self_attention(query=x, value=context, key=context, training=training,
-                                                      attention_mask=attention_mask, use_causal_mask=use_causal_mask,
-                                                      return_attention_scores=return_attention_scores)
+            x, attention_scores = self.attention(query=x, value=context, key=context, training=training,
+                                                 attention_mask=mask, use_causal_mask=use_causal_mask,
+                                                 return_attention_scores=return_attention_scores)
             self.attention_scores = attention_scores
         else:
-            x = self.self_attention(query=x, value=context, key=context, training=training,
-                                    attention_mask=attention_mask, use_causal_mask=use_causal_mask,
-                                    return_attention_scores=return_attention_scores)
+            x = self.attention(query=x, value=context, key=context, training=training, attention_mask=mask,
+                               use_causal_mask=use_causal_mask, return_attention_scores=return_attention_scores)
         return self.add([x, inputs])
 
     def get_config(self):
@@ -1340,6 +1335,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         self.axis = axis
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.dense_1 = self.dense = tf.keras.layers.Dense(
             units=dense_dimension, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
@@ -1452,6 +1448,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
         self.gamma_constraint = gamma_constraint
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.self_attention = TransformerAttention(
             embedding_dimension=embedding_dimension, num_heads=num_heads, dropout=rate, use_bias=use_bias,
@@ -1565,6 +1562,7 @@ class TransformerDecoder(tf.keras.layers.Layer):
         self.gamma_constraint = gamma_constraint
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.self_attention = TransformerAttention(
             embedding_dimension=embedding_dimension, num_heads=num_heads, dropout=rate, use_bias=use_bias,
@@ -1637,6 +1635,7 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
     def __init__(self,
                  vocabulary_size,
                  embedding_dimension,
+                 max_input_length=1024,
                  positional='embedding',
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
@@ -1662,7 +1661,6 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         self.sparse = sparse
         self.rate = rate
         self.seed = seed
-        self.supports_masking = True
 
         self.token_embedding = tf.keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
@@ -1670,10 +1668,13 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
             embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
             sparse=sparse)
         self.positional_encoding = PositionalEncoding(
-            mode=positional, embeddings_initializer=embeddings_initializer,
+            mode=positional, max_input_length=max_input_length, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-            embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length, sparse=sparse)
+            embeddings_constraint=embeddings_constraint, input_length=input_length, sparse=sparse)
         self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+
+    def compute_mask(self, inputs, mask=None):
+        return self.token_embedding.compute_mask(mask)
 
     def call(self, inputs, training=False, **kwargs):
         x = self.token_embedding(inputs)
@@ -1687,6 +1688,7 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         config.update({
             'vocabulary_size': self.vocabulary_size,
             'embedding_dimension': self.embedding_dimension,
+            'max_input_length': self.max_input_length,
             'positional': self.positional,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
@@ -1701,68 +1703,70 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
 class PositionalEncoding(tf.keras.layers.Layer):
     def __init__(self,
                  mode='embedding',
+                 max_input_length=1024,
+                 max_wavelength=10000,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  activity_regularizer=None,
                  embeddings_constraint=None,
-                 mask_zero=False,
                  input_length=None,
                  sparse=False,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.mode = mode
+        self.max_input_length = max_input_length
+        self.max_wavelength = max_wavelength
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.activity_regularizer = activity_regularizer
         self.embeddings_constraint = embeddings_constraint
-        self.mask_zero = mask_zero
         self.input_length = input_length
         self.sparse = sparse
         self.supports_masking = True
-        self.encoding = None
         self.embedding = None
-        self.positions = None
+        self.positions_mask = None
+        self.timescales = None
+        self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
         super().build(input_shape=input_shape)
-        input_length = input_shape[-2]
         embedding_dimension = input_shape[-1]
         if self.mode == 'encoding':
-            positions = np.arange(input_length)[:, np.newaxis]
-            indexes = np.arange(embedding_dimension)[np.newaxis, :]
-            angles = positions / (10000 ** ((2 * (indexes // 2)) / embedding_dimension))
-            sines = np.sin(angles[:, 0::2])
-            cosines = np.cos(angles[:, 1::2])
-            encoding = np.empty([input_length, embedding_dimension])
-            encoding[:, 0::2] = sines
-            encoding[:, 1::2] = cosines
-            self.encoding = tf.convert_to_tensor(encoding[np.newaxis, ...], dtype=tf.float32)
+            self.timescales = tf.math.pow(
+                tf.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
+                (tf.cast(2 * (tf.range(embedding_dimension) // 2), self.compute_dtype) /
+                 tf.cast(embedding_dimension, self.compute_dtype)))
+            self.positions_mask = tf.cast(tf.range(embedding_dimension) % 2, self.compute_dtype)
         elif self.mode == 'embedding':
             self.embedding = tf.keras.layers.Embedding(
-                input_dim=input_length, output_dim=embedding_dimension,
+                input_dim=self.max_input_length, output_dim=embedding_dimension,
                 embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
                 activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
-                mask_zero=self.mask_zero, input_length=self.input_length, sparse=self.sparse)
-            self.positions = tf.expand_dims(tf.range(start=0, limit=input_length, delta=1), axis=0)
+                mask_zero=False, input_length=self.input_length, sparse=self.sparse)
         else:
             raise ValueError(f'Unexpected `mode`: {self.mode}. Possible values are: `encoding` or `embedding`')
 
-    def compute_mask(self, inputs, mask=None):
-        return self.embedding.compute_mask(inputs=inputs, mask=mask) if self.mode == 'embedding' else None
-
     def call(self, inputs, **kwargs):
-        return inputs + (self.embedding(self.positions) if self.mode == 'embedding' else self.encoding)
+        input_shape = tf.shape(inputs)
+        positions = tf.cast(tf.range(start=0, limit=input_shape[-2], delta=1), self.compute_dtype)
+        if self.mode == 'encoding':
+            angles = tf.expand_dims(positions, axis=1) * tf.expand_dims(self.timescales, axis=0)
+            encoding = (tf.math.sin(angles) * (1 - self.positions_mask) + tf.math.cos(angles) * self.positions_mask)
+            return self.add([inputs, tf.broadcast_to(encoding, shape=input_shape)])
+        else:
+            return self.add([inputs, tf.broadcast_to(self.embedding(positions), shape=input_shape)])
 
     def get_config(self):
         config = super().get_config()
         config.update({
             'mode': self.mode,
+            'max_input_length': self.max_input_length,
+            'max_wavelength': self.max_wavelength,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
             'activity_regularizer': self.activity_regularizer,
             'embeddings_constraint': self.embeddings_constraint,
-            'mask_zero': self.mask_zero,
             'input_length': self.input_length,
             'sparse': self.sparse
         })
@@ -1839,6 +1843,7 @@ class PatchEncoding2D(tf.keras.layers.Layer):
         else:
             raise ValueError(f'Unexpected value for `mode`: {mode}. Possible values are: `convolution`, `conv`, '
                              f'`patch` or `crop`.')
+        self.add = tf.keras.layers.Add()
         self.embedding = None
         self.positions = None
 
@@ -1858,7 +1863,7 @@ class PatchEncoding2D(tf.keras.layers.Layer):
         else:
             patches = self.convolution(inputs)
         patches = tf.reshape(patches, shape=[-1, patches.shape[1] * patches.shape[2], patches.shape[3]])
-        return patches + self.embedding(self.positions)
+        return self.add([patches, self.embedding(self.positions)])
 
     def get_config(self):
         config = super().get_config()
