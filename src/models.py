@@ -30,6 +30,7 @@ class Transformer(Model):
                  num_encoders=1,
                  num_decoders=1,
                  positional='embedding',
+                 max_input_length=1024,
                  use_bias=True,
                  output_shape=None,
                  attention_axes=None,
@@ -65,14 +66,16 @@ class Transformer(Model):
 
         self.input_embedding = layers.TokenAndPositionEmbedding(
             vocabulary_size=input_vocabulary_size, embedding_dimension=embedding_dimension, positional=positional,
-            embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
-            activity_regularizer=activity_regularizer, embeddings_constraint=embeddings_constraint,
-            mask_zero=mask_zero, input_length=input_length, sparse=sparse, rate=rate, seed=seed)
+            max_input_length=max_input_length, embeddings_initializer=embeddings_initializer,
+            embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+            embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length, sparse=sparse,
+            rate=rate, seed=seed)
         self.output_embedding = layers.TokenAndPositionEmbedding(
             vocabulary_size=output_vocabulary_size, embedding_dimension=embedding_dimension, positional=positional,
-            embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
-            activity_regularizer=activity_regularizer, embeddings_constraint=embeddings_constraint,
-            mask_zero=mask_zero, input_length=input_length, sparse=sparse, rate=rate, seed=seed)
+            max_input_length=max_input_length, embeddings_initializer=embeddings_initializer,
+            embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+            embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length, sparse=sparse,
+            rate=rate, seed=seed)
         self.encoders = [layers.TransformerEncoder(
             embedding_dimension=embedding_dimension, dense_dimension=dense_dimension, num_heads=num_heads,
             use_bias=use_bias, output_shape=output_shape, attention_axes=attention_axes,
@@ -101,13 +104,13 @@ class Transformer(Model):
             bias_constraint=bias_constraint)
 
     def call(self, inputs, training=False, return_attention_scores=False, **kwargs):
-        context, outputs = inputs
-        context = self.input_embedding(context, training=training)
+        inputs, outputs = inputs
+        inputs = self.input_embedding(inputs, training=training)
         for encoder in self.encoders:
-            context = encoder(context, training=training,
-                              return_attention_scores=return_attention_scores)
+            inputs = encoder(inputs, training=training, return_attention_scores=return_attention_scores)
+        outputs = self.output_embedding(outputs, training=training)
         for decoder in self.decoders:
-            outputs = decoder(outputs, context=context, training=training,
+            outputs = decoder(outputs, context=inputs, training=training,
                               return_attention_scores=return_attention_scores)
         return self.posteriors(outputs)
 
