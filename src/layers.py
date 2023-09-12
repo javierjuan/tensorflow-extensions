@@ -62,6 +62,7 @@ class DenseBlock(tf.keras.layers.Layer):
         self.axis = axis
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.dense = tf.keras.layers.Dense(
             units=units, activation=None, use_bias=use_bias, kernel_initializer=kernel_initializer,
@@ -208,6 +209,7 @@ class ConvolutionBlock2D(tf.keras.layers.Layer):
         self.axis = axis
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.convolution = tf.keras.layers.Convolution2D(
             filters=filters, kernel_size=kernel_size, strides=strides, padding=padding, data_format=data_format,
@@ -362,6 +364,7 @@ class InceptionBlock2D(tf.keras.layers.Layer):
         self.rate = rate
         self.seed = seed
         self.pool_size = pool_size
+        self.supports_masking = True
 
         self.block_1x = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
@@ -562,6 +565,7 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
         self.axis = axis
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.g = None
         self.theta = None
@@ -760,6 +764,7 @@ class ResidualBlock2D(tf.keras.layers.Layer):
         self.gamma_constraint = gamma_constraint
         self.synchronized = synchronized
         self.axis = axis
+        self.supports_masking = True
 
         self.attention_block = ConvolutionalAttention2D(
             reduction_factor=reduction_factor, activation=activation, use_bias=use_bias,
@@ -902,6 +907,7 @@ class ConvolutionalAttention2D(tf.keras.layers.Layer):
         self.data_format = data_format
         self.dilation_rate = dilation_rate
         self.convolution_groups = convolution_groups
+        self.supports_masking = True
 
         self.channel_attention_block = ChannelAttention2D(
             reduction_factor=reduction_factor, activation=activation, use_bias=use_bias,
@@ -1023,6 +1029,7 @@ class ChannelAttention2D(tf.keras.layers.Layer):
         self.gamma_constraint = gamma_constraint
         self.synchronized = synchronized
         self.axis = axis
+        self.supports_masking = True
 
         self.dense_mid = None
         self.dense_out = None
@@ -1130,6 +1137,7 @@ class SpatialAttention2D(tf.keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
+        self.supports_masking = True
 
         self.convolution = tf.keras.layers.Convolution2D(
             filters=1, kernel_size=kernel_size, strides=strides, padding=padding, data_format=data_format,
@@ -1172,7 +1180,6 @@ class SpatialAttention2D(tf.keras.layers.Layer):
 
 class TransformerAttention(tf.keras.layers.Layer):
     def __init__(self,
-                 embedding_dimension,
                  num_heads,
                  dropout=0.0,
                  use_bias=True,
@@ -1198,7 +1205,6 @@ class TransformerAttention(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.embedding_dimension = embedding_dimension
         self.num_heads = num_heads
         self.dropout = dropout
         self.use_bias = use_bias
@@ -1224,12 +1230,7 @@ class TransformerAttention(tf.keras.layers.Layer):
         self.attention_scores = None
         self.supports_masking = True
 
-        self.attention = tf.keras.layers.MultiHeadAttention(
-            num_heads=num_heads, key_dim=embedding_dimension, value_dim=None, dropout=dropout, use_bias=use_bias,
-            output_shape=output_shape, attention_axes=attention_axes, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
-            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint)
+        self.attention = None
         self.normalization = tf.keras.layers.LayerNormalization(
             axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
             gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
@@ -1238,27 +1239,29 @@ class TransformerAttention(tf.keras.layers.Layer):
 
     def build(self, input_shape):
         super().build(input_shape=input_shape)
-        if hasattr(self.attention, '_build_from_signature'):
+        embedding_dimension = input_shape[-1]
+        self.attention = tf.keras.layers.MultiHeadAttention(
+            num_heads=self.num_heads, key_dim=embedding_dimension // self.num_heads, value_dim=None,
+            dropout=self.dropout, use_bias=self.use_bias, output_shape=self._output_shape,
+            attention_axes=self.attention_axes, kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
+            bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
+            kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
+        if hasattr(self.attention, "_build_from_signature"):
             self.attention._build_from_signature(query=input_shape, value=input_shape)
+        else:
+            self.attention.build(query_shape=input_shape, value_shape=input_shape)
 
-    def call(self, inputs, context=None, training=False, mask=None, return_attention_scores=False,
-             use_causal_mask=False, **kwargs):
+    def call(self, inputs, context=None, training=False, use_causal_mask=False, **kwargs):
         x = self.normalization(inputs)
         context = x if context is None else context
-        if return_attention_scores:
-            x, attention_scores = self.attention(query=x, value=context, key=context, training=training,
-                                                 attention_mask=mask, use_causal_mask=use_causal_mask,
-                                                 return_attention_scores=return_attention_scores)
-            self.attention_scores = attention_scores
-        else:
-            x = self.attention(query=x, value=context, key=context, training=training, attention_mask=mask,
-                               use_causal_mask=use_causal_mask, return_attention_scores=return_attention_scores)
+        x, self.attention_scores = self.attention(query=x, value=context, key=context, return_attention_scores=True,
+                                                  training=training, use_causal_mask=use_causal_mask)
         return self.add([x, inputs])
 
     def get_config(self):
         config = super().get_config()
         config.update({
-            'embedding_dimension': self.embedding_dimension,
             'num_heads': self.num_heads,
             'dropout': self.dropout,
             'use_bias': self.use_bias,
@@ -1286,8 +1289,7 @@ class TransformerAttention(tf.keras.layers.Layer):
 
 class TransformerFeedForward(tf.keras.layers.Layer):
     def __init__(self,
-                 embedding_dimension,
-                 dense_dimension,
+                 units,
                  activation='mish',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -1312,8 +1314,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.embedding_dimension = embedding_dimension
-        self.dense_dimension = dense_dimension
+        self.units = units
         self.activation = activation
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
@@ -1337,16 +1338,12 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.dense_1 = self.dense = tf.keras.layers.Dense(
-            units=dense_dimension, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
+        self.dense_input = tf.keras.layers.Dense(
+            units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
-        self.dense_2 = self.dense = tf.keras.layers.Dense(
-            units=embedding_dimension, activation=None, use_bias=use_bias, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
-            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint)
+        self.dense_output = None
         self.normalization = tf.keras.layers.LayerNormalization(
             axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
             gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
@@ -1354,10 +1351,20 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
         self.add = tf.keras.layers.Add()
 
+    def build(self, input_shape):
+        super().build(input_shape=input_shape)
+        embedding_dimension = input_shape[-1]
+        self.dense_output = tf.keras.layers.Dense(
+            units=embedding_dimension, activation=None, use_bias=self.use_bias,
+            kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
+            activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
+            bias_constraint=self.bias_constraint)
+
     def call(self, inputs, training=False, **kwargs):
         x = self.normalization(inputs)
-        x = self.dense_1(x)
-        x = self.dense_2(x)
+        x = self.dense_input(x)
+        x = self.dense_output(x)
         if self.dropout is not None:
             x = self.dropout(x, training=training)
         return self.add([x, inputs])
@@ -1365,8 +1372,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-            'embedding_dimension': self.embedding_dimension,
-            'dense_dimension': self.dense_dimension,
+            'units': self.units,
             'activation': self.activation,
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,
@@ -1393,8 +1399,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
 
 class TransformerEncoder(tf.keras.layers.Layer):
     def __init__(self,
-                 embedding_dimension,
-                 dense_dimension,
+                 units,
                  num_heads,
                  use_bias=True,
                  output_shape=None,
@@ -1422,8 +1427,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.embedding_dimension = embedding_dimension
-        self.dense_dimension = dense_dimension
+        self.units = units
         self.num_heads = num_heads
         self.use_bias = use_bias
         self._output_shape = output_shape
@@ -1451,34 +1455,31 @@ class TransformerEncoder(tf.keras.layers.Layer):
         self.supports_masking = True
 
         self.self_attention = TransformerAttention(
-            embedding_dimension=embedding_dimension, num_heads=num_heads, dropout=rate, use_bias=use_bias,
-            output_shape=output_shape, attention_axes=attention_axes, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            num_heads=num_heads, dropout=rate, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, axis=axis, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         self.feed_forward = TransformerFeedForward(
-            embedding_dimension=embedding_dimension, dense_dimension=dense_dimension, activation=activation,
-            use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=rate, seed=seed)
 
-    def call(self, inputs, training=False, mask=None, return_attention_scores=False, **kwargs):
-        x = self.self_attention(inputs, context=None, training=training, mask=mask, use_causal_mask=False,
-                                return_attention_scores=return_attention_scores)
+    def call(self, inputs, training=False, **kwargs):
+        x = self.self_attention(inputs, training=training)
         x = self.feed_forward(x, training=training)
         return x
 
     def get_config(self):
         config = super().get_config()
         config.update({
-            'embedding_dimension': self.embedding_dimension,
-            'dense_dimension': self.dense_dimension,
+            'units': self.units,
             'num_heads': self.num_heads,
             'use_bias': self.use_bias,
             'output_shape': self._output_shape,
@@ -1507,8 +1508,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
 
 class TransformerDecoder(tf.keras.layers.Layer):
     def __init__(self,
-                 embedding_dimension,
-                 dense_dimension,
+                 units,
                  num_heads,
                  use_bias=True,
                  output_shape=None,
@@ -1536,8 +1536,7 @@ class TransformerDecoder(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.embedding_dimension = embedding_dimension
-        self.dense_dimension = dense_dimension
+        self.units = units
         self.num_heads = num_heads
         self.use_bias = use_bias
         self._output_shape = output_shape
@@ -1565,46 +1564,40 @@ class TransformerDecoder(tf.keras.layers.Layer):
         self.supports_masking = True
 
         self.self_attention = TransformerAttention(
-            embedding_dimension=embedding_dimension, num_heads=num_heads, dropout=rate, use_bias=use_bias,
-            output_shape=output_shape, attention_axes=attention_axes, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            num_heads=num_heads, dropout=rate, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, axis=axis, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         self.cross_attention = TransformerAttention(
-            embedding_dimension=embedding_dimension, num_heads=num_heads, dropout=rate, use_bias=use_bias,
-            output_shape=output_shape, attention_axes=attention_axes, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            num_heads=num_heads, dropout=rate, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, axis=axis, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         self.feed_forward = TransformerFeedForward(
-            embedding_dimension=embedding_dimension, dense_dimension=dense_dimension, activation=activation,
-            use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=rate, seed=seed)
-        self.attention_scores = None
 
-    def call(self, inputs, context=None, training=False, mask=None, return_attention_scores=False, **kwargs):
-        x = self.self_attention(inputs, context=None, training=training, mask=mask, use_causal_mask=True,
-                                return_attention_scores=return_attention_scores)
-        x = self.cross_attention(x, context=context, training=training, mask=mask, use_causal_mask=False,
-                                 return_attention_scores=return_attention_scores)
-        self.attention_scores = self.cross_attention.attention_scores
+    def call(self, inputs, context=None, training=False, **kwargs):
+        x = self.self_attention(inputs, context=None, training=training, use_causal_mask=True)
+        x = self.cross_attention(x, context=context, training=training, use_causal_mask=False)
         x = self.feed_forward(x, training=training)
         return x
 
     def get_config(self):
         config = super().get_config()
         config.update({
-            'embedding_dimension': self.embedding_dimension,
-            'dense_dimension': self.dense_dimension,
+            'units': self.units,
             'num_heads': self.num_heads,
             'use_bias': self.use_bias,
             'output_shape': self._output_shape,
@@ -1633,10 +1626,11 @@ class TransformerDecoder(tf.keras.layers.Layer):
 
 class TokenAndPositionEmbedding(tf.keras.layers.Layer):
     def __init__(self,
+                 sequence_length,
                  vocabulary_size,
                  embedding_dimension,
-                 max_input_length=1024,
                  positional='embedding',
+                 max_wavelength=10000,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  activity_regularizer=None,
@@ -1649,9 +1643,11 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+        self.sequence_length = sequence_length
         self.vocabulary_size = vocabulary_size
         self.embedding_dimension = embedding_dimension
         self.positional = positional
+        self.max_wavelength = max_wavelength
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.activity_regularizer = activity_regularizer
@@ -1661,20 +1657,24 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         self.sparse = sparse
         self.rate = rate
         self.seed = seed
+        self.supports_masking = True
 
         self.token_embedding = tf.keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
             embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
             sparse=sparse)
-        self.positional_encoding = PositionalEncoding(
-            mode=positional, max_input_length=max_input_length, embeddings_initializer=embeddings_initializer,
-            embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-            embeddings_constraint=embeddings_constraint, input_length=input_length, sparse=sparse)
+        if positional == 'encoding':
+            self.positional_encoding = PositionalEncoding(max_wavelength=max_wavelength)
+        elif positional == 'embedding':
+            self.positional_encoding = PositionalEmbedding(
+                sequence_length=sequence_length, embeddings_initializer=embeddings_initializer,
+                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+                embeddings_constraint=embeddings_constraint, input_length=input_length, sparse=sparse)
+        else:
+            raise ValueError(f'Unexpected `positional` value: {positional}. Possible values are `encoding` or '
+                             '`embedding`')
         self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
-
-    def compute_mask(self, inputs, mask=None):
-        return self.token_embedding.compute_mask(mask)
 
     def call(self, inputs, training=False, **kwargs):
         x = self.token_embedding(inputs)
@@ -1686,24 +1686,62 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
+            'sequence_length': self.sequence_length,
             'vocabulary_size': self.vocabulary_size,
             'embedding_dimension': self.embedding_dimension,
-            'max_input_length': self.max_input_length,
             'positional': self.positional,
+            'max_wavelength': self.max_wavelength,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
             'activity_regularizer': self.activity_regularizer,
             'embeddings_constraint': self.embeddings_constraint,
             'mask_zero': self.mask_zero,
             'input_length': self.input_length,
-            'sparse': self.sparse
+            'sparse': self.sparse,
+            'rate': self.rate,
+            'seed': self.seed
         })
 
 
 class PositionalEncoding(tf.keras.layers.Layer):
     def __init__(self,
-                 mode='embedding',
-                 max_input_length=1024,
+                 max_wavelength=10000,
+                 name=None,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.max_wavelength = max_wavelength
+        self.supports_masking = True
+
+        self.positions_mask = None
+        self.timescales = None
+        self.add = tf.keras.layers.Add()
+
+    def build(self, input_shape):
+        super().build(input_shape=input_shape)
+        embedding_dimension = input_shape[-1]
+        timescales = tf.math.pow(tf.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
+                                 (tf.cast(2 * (tf.range(embedding_dimension) // 2), self.compute_dtype) /
+                                  tf.cast(embedding_dimension, self.compute_dtype)))
+        self.timescales = tf.expand_dims(timescales, axis=0)
+        self.positions_mask = tf.cast(tf.range(embedding_dimension) % 2, self.compute_dtype)
+
+    def call(self, inputs, **kwargs):
+        input_shape = tf.shape(inputs)
+        positions = tf.cast(tf.range(start=0, limit=input_shape[-2], delta=1), self.compute_dtype)
+        angles = tf.expand_dims(positions, axis=1) * self.timescales
+        encoding = (tf.math.sin(angles) * (1 - self.positions_mask) + tf.math.cos(angles) * self.positions_mask)
+        return self.add([inputs, tf.broadcast_to(encoding, shape=input_shape)])
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'max_wavelength': self.max_wavelength
+        })
+
+
+class PositionalEmbedding(tf.keras.layers.Layer):
+    def __init__(self,
+                 sequence_length,
                  max_wavelength=10000,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
@@ -1714,8 +1752,7 @@ class PositionalEncoding(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.mode = mode
-        self.max_input_length = max_input_length
+        self.sequence_length = sequence_length
         self.max_wavelength = max_wavelength
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
@@ -1724,45 +1761,28 @@ class PositionalEncoding(tf.keras.layers.Layer):
         self.input_length = input_length
         self.sparse = sparse
         self.supports_masking = True
+
         self.embedding = None
-        self.positions_mask = None
-        self.timescales = None
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
         super().build(input_shape=input_shape)
         embedding_dimension = input_shape[-1]
-        if self.mode == 'encoding':
-            self.timescales = tf.math.pow(
-                tf.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
-                (tf.cast(2 * (tf.range(embedding_dimension) // 2), self.compute_dtype) /
-                 tf.cast(embedding_dimension, self.compute_dtype)))
-            self.positions_mask = tf.cast(tf.range(embedding_dimension) % 2, self.compute_dtype)
-        elif self.mode == 'embedding':
-            self.embedding = tf.keras.layers.Embedding(
-                input_dim=self.max_input_length, output_dim=embedding_dimension,
-                embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
-                activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
-                mask_zero=False, input_length=self.input_length, sparse=self.sparse)
-        else:
-            raise ValueError(f'Unexpected `mode`: {self.mode}. Possible values are: `encoding` or `embedding`')
+        self.embedding = tf.keras.layers.Embedding(
+            input_dim=self.sequence_length, output_dim=embedding_dimension,
+            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
+            activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
+            mask_zero=False, input_length=self.input_length, sparse=self.sparse)
 
     def call(self, inputs, **kwargs):
         input_shape = tf.shape(inputs)
         positions = tf.cast(tf.range(start=0, limit=input_shape[-2], delta=1), self.compute_dtype)
-        if self.mode == 'encoding':
-            angles = tf.expand_dims(positions, axis=1) * tf.expand_dims(self.timescales, axis=0)
-            encoding = (tf.math.sin(angles) * (1 - self.positions_mask) + tf.math.cos(angles) * self.positions_mask)
-            return self.add([inputs, tf.broadcast_to(encoding, shape=input_shape)])
-        else:
-            return self.add([inputs, tf.broadcast_to(self.embedding(positions), shape=input_shape)])
+        return self.add([inputs, tf.broadcast_to(self.embedding(positions), shape=input_shape)])
 
     def get_config(self):
         config = super().get_config()
         config.update({
-            'mode': self.mode,
-            'max_input_length': self.max_input_length,
-            'max_wavelength': self.max_wavelength,
+            'sequence_length': self.sequence_length,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
             'activity_regularizer': self.activity_regularizer,
@@ -1824,6 +1844,7 @@ class PatchEncoding2D(tf.keras.layers.Layer):
         self.mask_zero = mask_zero
         self.input_length = input_length
         self.sparse = sparse
+        self.supports_masking = True
 
         self.class_token = self.add_weight(shape=[1, 1, embedding_dimension], name='class_token', trainable=True)
         if mode in ('patch', 'crop'):
@@ -1848,6 +1869,7 @@ class PatchEncoding2D(tf.keras.layers.Layer):
         self.positions = None
 
     def build(self, input_shape):
+        super().build(input_shape=input_shape)
         self.embedding = tf.keras.layers.Embedding(
             input_dim=input_shape[-2], output_dim=self.embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
@@ -1914,6 +1936,7 @@ class PatchExtractor2D(tf.keras.layers.Layer):
         self.stride = self.size if stride is None else [1, *stride, 1]
         self.rate = [1, 1, 1, 1] if rate is None else [1, *rate, 1]
         self.padding = padding
+        self.supports_masking = True
 
     def call(self, inputs, **kwargs):
         patches = tf.image.extract_patches(images=inputs, sizes=self.size, strides=self.stride, rates=self.rate,
