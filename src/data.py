@@ -28,13 +28,17 @@ class DatasetManagerBase(ABC):
 
     @classmethod
     def from_json(cls, inputs: Union[Dict, PathLike, str]):
+        return cls(**cls.load_json(inputs))
+
+    @staticmethod
+    def load_json(inputs: Union[Dict, PathLike, str]) -> Dict[str, Any]:
         if isinstance(inputs, (PathLike, str)):
             if Path(inputs).is_file():
                 with open(inputs, 'r') as file:
                     inputs = json.load(file)
             else:
                 inputs = json.loads(inputs)
-        return cls(**inputs)
+        return inputs
 
     def to_json(self, file_path: Optional[Union[PathLike, str]] = None, indent: int = 4) -> str:
         output = json.dumps(self.to_dict(), indent=indent)
@@ -61,11 +65,11 @@ class DatasetManagerBase(ABC):
             logger.addHandler(handler)
         return logger
 
-    def datasets_from_directory(self, directory: Union[PathLike, str], extension: str = '.tfrecords',
+    def datasets_from_directory(self, directory: Union[PathLike, str], extension: str = '.tfrecord',
                                 verbose: bool = True) -> List[tf.data.Dataset]:
         file_paths = sorted(Path(directory).glob('*' + extension))
         if not file_paths:
-            raise ValueError(f'Empty directory: {directory}')
+            raise ValueError(f'Directory {directory} does not contain *.tfrecord')
         datasets = []
         for file_path in file_paths:
             if not file_path.is_file():
@@ -76,14 +80,16 @@ class DatasetManagerBase(ABC):
         return datasets
 
     def sample_from_datasets(self, datasets: Sequence[tf.data.Dataset], weights: Optional[Sequence[float]] = None,
-                             verbose: bool = True) -> tf.data.Dataset:
+                             verbose: bool = True, seed: Optional[bool] = None,
+                             stop_on_empty_dataset: bool = False) -> tf.data.Dataset:
         if len(datasets) == 1:
             return datasets[0]
         if weights is None:
             if verbose:
                 self.logger.info(f'Uniform sampling from {datasets}')
             choice_dataset = tf.data.Dataset.range(len(datasets)).repeat()
-            return tf.data.Dataset.choose_from_datasets(datasets=datasets, choice_dataset=choice_dataset)
+            return tf.data.Dataset.choose_from_datasets(datasets=datasets, choice_dataset=choice_dataset,
+                                                        stop_on_empty_dataset=stop_on_empty_dataset)
         else:
             if len(datasets) != len(weights):
                 raise ValueError('`weights` must have the same number of elements than `datasets`')
@@ -92,7 +98,8 @@ class DatasetManagerBase(ABC):
             if verbose:
                 self.logger.info('\n'.join(f'Sampling from dataset {dataset} with weight {weight}' for dataset, weight
                                            in zip(datasets, weights)))
-            return tf.data.Dataset.sample_from_datasets(datasets=datasets, weights=weights)
+            return tf.data.Dataset.sample_from_datasets(datasets=datasets, weights=weights, seed=seed,
+                                                        stop_on_empty_dataset=stop_on_empty_dataset)
 
     @abstractmethod
     def train_dataset(self, *args, batch_size: int, shuffle_size: int = 128, repeat: bool = True, **kwargs) \
