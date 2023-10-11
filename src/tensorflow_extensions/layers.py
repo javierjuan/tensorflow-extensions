@@ -1397,7 +1397,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         })
 
 
-class TransformerEncoder(tf.keras.layers.Layer):
+class TransformerEncoderLayer(tf.keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
@@ -1506,7 +1506,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
         return config
 
 
-class TransformerDecoder(tf.keras.layers.Layer):
+class TransformerDecoderLayer(tf.keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
@@ -1620,6 +1620,335 @@ class TransformerDecoder(tf.keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint
+        })
+        return config
+
+
+class TransformerEncoder(tf.keras.layers.Layer):
+    def __init__(self,
+                 units,
+                 num_heads,
+                 use_bias=True,
+                 output_shape=None,
+                 attention_axes=None,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 activation='mish',
+                 axis=-1,
+                 epsilon=1e-3,
+                 center=True,
+                 scale=True,
+                 beta_initializer='zeros',
+                 gamma_initializer='ones',
+                 beta_regularizer=None,
+                 gamma_regularizer=None,
+                 beta_constraint=None,
+                 gamma_constraint=None,
+                 rate=None,
+                 seed=None,
+                 name=None,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+
+        units = [units] if isinstance(units, int) else units
+        num_heads = [num_heads for _ in range(len(units))] if isinstance(num_heads, int) else num_heads
+        if len(units) != len(num_heads):
+            raise ValueError(f'Number of `units` must match with number of `num_heads`')
+
+        self.units = units
+        self.num_heads = num_heads
+        self.use_bias = use_bias
+        self._output_shape = output_shape
+        self.attention_axes = attention_axes
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.kernel_regularizer = kernel_regularizer
+        self.bias_regularizer = bias_regularizer
+        self.activity_regularizer = activity_regularizer
+        self.kernel_constraint = kernel_constraint
+        self.bias_constraint = bias_constraint
+        self.activation = activation
+        self.axis = axis
+        self.epsilon = epsilon
+        self.center = center
+        self.scale = scale
+        self.beta_initializer = beta_initializer
+        self.gamma_initializer = gamma_initializer
+        self.beta_regularizer = beta_regularizer
+        self.gamma_regularizer = gamma_regularizer
+        self.beta_constraint = beta_constraint
+        self.gamma_constraint = gamma_constraint
+        self.rate = rate
+        self.seed = seed
+        self.supports_masking = True
+
+        self.encoder = [TransformerEncoderLayer(
+            units=_units, num_heads=_num_heads, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint, activation=activation, axis=axis, epsilon=epsilon, center=center,
+            scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
+            beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
+            gamma_constraint=gamma_constraint, rate=rate, seed=seed) for _units, _num_heads in zip(units, num_heads)]
+
+    def call(self, inputs, training=False, **kwargs):
+        for layer in self.encoder:
+            inputs = layer(inputs, training=training)
+        return inputs
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'units': self.units,
+            'num_heads': self.num_heads,
+            'use_bias': self.use_bias,
+            'output_shape': self._output_shape,
+            'attention_axes': self.attention_axes,
+            'kernel_initializer': self.kernel_initializer,
+            'bias_initializer': self.bias_initializer,
+            'kernel_regularizer': self.kernel_regularizer,
+            'bias_regularizer': self.bias_regularizer,
+            'activity_regularizer': self.activity_regularizer,
+            'kernel_constraint': self.kernel_constraint,
+            'bias_constraint': self.bias_constraint,
+            'activation': self.activation,
+            'axis': self.axis,
+            'epsilon': self.epsilon,
+            'center': self.center,
+            'scale': self.scale,
+            'beta_initializer': self.beta_initializer,
+            'gamma_initializer': self.gamma_initializer,
+            'beta_regularizer': self.beta_regularizer,
+            'gamma_regularizer': self.gamma_regularizer,
+            'beta_constraint': self.beta_constraint,
+            'gamma_constraint': self.gamma_constraint
+        })
+        return config
+
+
+class TransformerDecoder(tf.keras.layers.Layer):
+    def __init__(self,
+                 units,
+                 num_heads,
+                 use_bias=True,
+                 output_shape=None,
+                 attention_axes=None,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 activation='mish',
+                 axis=-1,
+                 epsilon=1e-3,
+                 center=True,
+                 scale=True,
+                 beta_initializer='zeros',
+                 gamma_initializer='ones',
+                 beta_regularizer=None,
+                 gamma_regularizer=None,
+                 beta_constraint=None,
+                 gamma_constraint=None,
+                 rate=None,
+                 seed=None,
+                 name=None,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.units = units
+        self.num_heads = num_heads
+        self.use_bias = use_bias
+        self._output_shape = output_shape
+        self.attention_axes = attention_axes
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.kernel_regularizer = kernel_regularizer
+        self.bias_regularizer = bias_regularizer
+        self.activity_regularizer = activity_regularizer
+        self.kernel_constraint = kernel_constraint
+        self.bias_constraint = bias_constraint
+        self.activation = activation
+        self.axis = axis
+        self.epsilon = epsilon
+        self.center = center
+        self.scale = scale
+        self.beta_initializer = beta_initializer
+        self.gamma_initializer = gamma_initializer
+        self.beta_regularizer = beta_regularizer
+        self.gamma_regularizer = gamma_regularizer
+        self.beta_constraint = beta_constraint
+        self.gamma_constraint = gamma_constraint
+        self.rate = rate
+        self.seed = seed
+        self.supports_masking = True
+
+        self.decoder = [TransformerDecoderLayer(
+            units=_units, num_heads=_num_heads, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+            bias_constraint=activity_regularizer, activation=activation, axis=axis, epsilon=epsilon, center=center,
+            scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
+            beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
+            gamma_constraint=gamma_constraint, rate=rate, seed=seed) for _units, _num_heads in zip(units, num_heads)]
+
+    def call(self, inputs, context=None, training=False, **kwargs):
+        for layer in self.decoders:
+            inputs = layer(inputs, context=context, training=training)
+        return inputs
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'units': self.units,
+            'num_heads': self.num_heads,
+            'use_bias': self.use_bias,
+            'output_shape': self._output_shape,
+            'attention_axes': self.attention_axes,
+            'kernel_initializer': self.kernel_initializer,
+            'bias_initializer': self.bias_initializer,
+            'kernel_regularizer': self.kernel_regularizer,
+            'bias_regularizer': self.bias_regularizer,
+            'activity_regularizer': self.activity_regularizer,
+            'kernel_constraint': self.kernel_constraint,
+            'bias_constraint': self.bias_constraint,
+            'activation': self.activation,
+            'axis': self.axis,
+            'epsilon': self.epsilon,
+            'center': self.center,
+            'scale': self.scale,
+            'beta_initializer': self.beta_initializer,
+            'gamma_initializer': self.gamma_initializer,
+            'beta_regularizer': self.beta_regularizer,
+            'gamma_regularizer': self.gamma_regularizer,
+            'beta_constraint': self.beta_constraint,
+            'gamma_constraint': self.gamma_constraint
+        })
+        return config
+
+
+class Transformer(tf.keras.layers.Layer):
+    def __init__(self,
+                 encoder_units,
+                 encoder_num_heads,
+                 decoder_units=None,
+                 decoder_num_heads=None,
+                 use_bias=True,
+                 output_shape=None,
+                 attention_axes=None,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 activation='mish',
+                 axis=-1,
+                 epsilon=1e-3,
+                 center=True,
+                 scale=True,
+                 beta_initializer='zeros',
+                 gamma_initializer='ones',
+                 beta_regularizer=None,
+                 gamma_regularizer=None,
+                 beta_constraint=None,
+                 gamma_constraint=None,
+                 rate=None,
+                 seed=None,
+                 name=None,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.encoder_units = encoder_units
+        self.encoder_num_heads = encoder_num_heads
+        self.decoder_units = encoder_units if decoder_units is None else decoder_units
+        self.decoder_num_heads = encoder_num_heads if decoder_num_heads is None else decoder_num_heads
+        self.use_bias = use_bias
+        self._output_shape = output_shape
+        self.attention_axes = attention_axes
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.kernel_regularizer = kernel_regularizer
+        self.bias_regularizer = bias_regularizer
+        self.activity_regularizer = activity_regularizer
+        self.kernel_constraint = kernel_constraint
+        self.bias_constraint = bias_constraint
+        self.activation = activation
+        self.axis = axis
+        self.epsilon = epsilon
+        self.center = center
+        self.scale = scale
+        self.beta_initializer = beta_initializer
+        self.gamma_initializer = gamma_initializer
+        self.beta_regularizer = beta_regularizer
+        self.gamma_regularizer = gamma_regularizer
+        self.beta_constraint = beta_constraint
+        self.gamma_constraint = gamma_constraint
+        self.rate = rate
+        self.seed = seed
+
+        self.encoder = TransformerEncoder(
+            units=encoder_units, num_heads=encoder_num_heads, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint, activation=activation, axis=axis, epsilon=epsilon, center=center,
+            scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
+            beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
+            gamma_constraint=gamma_constraint, rate=rate, seed=seed)
+        self.decoder = TransformerDecoder(
+            units=decoder_units, num_heads=decoder_num_heads, use_bias=use_bias, output_shape=output_shape,
+            attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+            bias_constraint=activity_regularizer, activation=activation, axis=axis, epsilon=epsilon, center=center,
+            scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
+            beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
+            gamma_constraint=gamma_constraint, rate=rate, seed=seed)
+
+    def call(self, inputs, training=False, **kwargs):
+        inputs, outputs = inputs
+        inputs = self.encoder(inputs, training=training)
+        outputs = self.decoder(outputs, context=inputs, training=training)
+        return outputs
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'encoder_units': self.encoder_units,
+            'decoder_units': self.decoder_units,
+            'encoder_num_heads': self.encoder_num_heads,
+            'decoder_num_heads': self.decoder_num_heads,
+            'use_bias': self.use_bias,
+            'output_shape': self._output_shape,
+            'attention_axes': self.attention_axes,
+            'kernel_initializer': self.kernel_initializer,
+            'bias_initializer': self.bias_initializer,
+            'kernel_regularizer': self.kernel_regularizer,
+            'bias_regularizer': self.bias_regularizer,
+            'activity_regularizer': self.activity_regularizer,
+            'kernel_constraint': self.kernel_constraint,
+            'bias_constraint': self.bias_constraint,
+            'activation': self.activation,
+            'axis': self.axis,
+            'epsilon': self.epsilon,
+            'center': self.center,
+            'scale': self.scale,
+            'beta_initializer': self.beta_initializer,
+            'gamma_initializer': self.gamma_initializer,
+            'beta_regularizer': self.beta_regularizer,
+            'gamma_regularizer': self.gamma_regularizer,
+            'beta_constraint': self.beta_constraint,
+            'gamma_constraint': self.gamma_constraint,
+            'rate': self.rate,
+            'seed': self.seed
         })
         return config
 
