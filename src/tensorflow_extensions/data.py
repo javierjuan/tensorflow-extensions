@@ -102,20 +102,19 @@ class DatasetManagerBase(ABC):
                                                         stop_on_empty_dataset=stop_on_empty_dataset)
 
     @abstractmethod
-    def train_dataset(self, *args, batch_size: int, shuffle_size: int = 128, repeat: bool = True, **kwargs) \
-            -> tf.data.Dataset:
+    def train_dataset(self, batch_size: int, **kwargs) -> tf.data.Dataset:
         raise NotImplementedError('This method must be implemented by all subclasses')
 
     @abstractmethod
-    def validation_dataset(self, *args, batch_size: int, **kwargs) -> tf.data.Dataset:
+    def validation_dataset(self, batch_size: int, **kwargs) -> tf.data.Dataset:
         raise NotImplementedError('This method must be implemented by all subclasses')
 
     @abstractmethod
-    def predict_dataset(self, *args, batch_size: int, **kwargs) -> tf.data.Dataset:
+    def predict_dataset(self, batch_size: int, **kwargs) -> tf.data.Dataset:
         raise NotImplementedError('This method must be implemented by all subclasses')
 
     @abstractmethod
-    def train_example(self, **args) -> tf.train.Example:
+    def train_example(self, **kwargs) -> tf.train.Example:
         raise NotImplementedError('This method must be implemented by all subclasses')
 
     @tf.function
