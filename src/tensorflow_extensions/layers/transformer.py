@@ -108,6 +108,7 @@ class TransformerAttention(tf.keras.layers.Layer):
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint
         })
+        return config
 
 
 class TransformerFeedForward(tf.keras.layers.Layer):
@@ -218,6 +219,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
             'rate': self.rate,
             'seed': self.seed
         })
+        return config
 
 
 class TransformerEncoderLayer(tf.keras.layers.Layer):
