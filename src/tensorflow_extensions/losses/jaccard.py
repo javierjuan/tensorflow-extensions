@@ -19,7 +19,7 @@ class Jaccard(tf.keras.losses.Loss):
         scores = dice_score(y_true=y_true, y_pred=y_pred)
         loss = 1.0 - (scores / (2.0 - scores))
         return finalize_loss(loss=loss, label_penalties=self.label_penalties)
-    
+
     def get_config(self):
         config = super().get_config()
         config.update({

@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 from os import PathLike
 from pathlib import Path
 from typing import Union, Dict, Optional, Any, Sequence, Tuple, List
-import numpy as np
 
+import numpy as np
 import tensorflow as tf
 
 
