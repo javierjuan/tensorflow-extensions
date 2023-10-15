@@ -42,11 +42,11 @@ class RandomAugmentation(tf.keras.layers.Layer):
             batchwise=True)
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         self.crop_and_resize = kcv.layers.RandomCropAndResize(
             target_size=input_shape[1:-1], crop_area_factor=self.crop_area_factor,
             aspect_ratio_factor=self.aspect_ratio_factor, interpolation=self.interpolation,
             bounding_box_format=self.bounding_box_format, seed=self.seed)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
         x = self.random_flip(inputs, training=training)

@@ -17,13 +17,13 @@ class PositionalEncoding1D(tf.keras.layers.Layer):
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         embedding_dimension = input_shape[-1]
         timescales = tf.math.pow(tf.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
                                  (tf.cast(2 * (tf.range(embedding_dimension) // 2), self.compute_dtype) /
                                   tf.cast(embedding_dimension, self.compute_dtype)))
         self.timescales = tf.expand_dims(timescales, axis=0)
         self.positions_mask = tf.cast(tf.range(embedding_dimension) % 2, self.compute_dtype)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         input_shape = tf.shape(inputs)
@@ -65,13 +65,13 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         embedding_dimension = input_shape[-1]
         self.embedding = tf.keras.layers.Embedding(
             input_dim=self.sequence_length, output_dim=embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
             mask_zero=False, input_length=self.input_length, sparse=self.sparse)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         input_shape = tf.shape(inputs)
@@ -123,7 +123,6 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         self.rows, self.cols = input_shape[-3], input_shape[-2]
         embedding_dimension = input_shape[-1] // 2
         self.row_positions = tf.cast(tf.range(start=0, limit=self.rows, delta=1), self.compute_dtype)
@@ -138,6 +137,7 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
             embeddings_regularizer=self.embeddings_regularizer, activity_regularizer=self.activity_regularizer,
             embeddings_constraint=self.embeddings_constraint, mask_zero=False, input_length=self.input_length,
             sparse=self.sparse)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         rows_embedding = tf.tile(tf.expand_dims(self.row_embedding(self.row_positions), axis=1), [1, self.cols, 1])
@@ -373,13 +373,13 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
         self.positions = None
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         self.embedding = tf.keras.layers.Embedding(
             input_dim=input_shape[-2], output_dim=self.embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
             mask_zero=self.mask_zero, input_length=self.input_length, sparse=self.sparse)
         self.positions = tf.expand_dims(tf.range(start=0, limit=input_shape[1], delta=1), axis=0)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         # TODO: Class Token

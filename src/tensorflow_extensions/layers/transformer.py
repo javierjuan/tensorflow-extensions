@@ -63,7 +63,6 @@ class TransformerAttention(tf.keras.layers.Layer):
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         embedding_dimension = input_shape[-1]
         self.attention = tf.keras.layers.MultiHeadAttention(
             num_heads=self.num_heads, key_dim=embedding_dimension // self.num_heads, value_dim=None,
@@ -76,6 +75,7 @@ class TransformerAttention(tf.keras.layers.Layer):
             self.attention._build_from_signature(query=input_shape, value=input_shape)
         else:
             self.attention.build(query_shape=input_shape, value_shape=input_shape)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, context=None, training=False, use_causal_mask=False, **kwargs):
         x = self.normalization(inputs)
@@ -178,7 +178,6 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         embedding_dimension = input_shape[-1]
         self.dense_output = tf.keras.layers.Dense(
             units=embedding_dimension, activation=None, use_bias=self.use_bias,
@@ -186,6 +185,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
             kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
             activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
             bias_constraint=self.bias_constraint)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
         x = self.normalization(inputs)

@@ -105,7 +105,6 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         filters = int(max(1, input_shape[-1] // 2))
         self.convolution = tf.keras.layers.Convolution2D(
             filters=filters, kernel_size=(1, 1), strides=self.strides, padding=self.padding,
@@ -138,6 +137,7 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
                 kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
         self.flatten = tf.keras.layers.Reshape([-1, filters])
         self.expand = tf.keras.layers.Reshape(input_shape[1:-1] + filters)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
         if self.dropout is not None:

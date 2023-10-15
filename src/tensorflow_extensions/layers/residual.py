@@ -95,12 +95,12 @@ class ResidualBlock2D(tf.keras.layers.Layer):
         self.adapt_input = None
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         input_channels = input_shape[-1]
         layer_channels = self.layer.compute_output_shape(input_shape=input_shape)[-1]
         if input_channels != layer_channels:
             self.adapt_input = tf.keras.layers.Convolution2D(
                 filters=layer_channels, kernel_size=(1, 1), padding='same', activation=None)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
         x = self.layer(inputs, training=training)

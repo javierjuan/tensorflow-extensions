@@ -205,7 +205,6 @@ class ChannelAttention2D(tf.keras.layers.Layer):
         self.concatenate = tf.keras.layers.Concatenate(axis=axis)
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         input_channels = input_shape[-1]
         self.dense_mid = DenseBlock(
             units=input_channels * 2 // self.reduction_factor, activation=self.activation, use_bias=self.use_bias,
@@ -226,6 +225,7 @@ class ChannelAttention2D(tf.keras.layers.Layer):
             activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
             bias_constraint=self.bias_constraint)
         self.reshape = tf.keras.layers.Reshape(target_shape=(1, 1, input_channels))
+        super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
         x = self.global_average_pooling(inputs)

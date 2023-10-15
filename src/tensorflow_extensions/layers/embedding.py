@@ -19,11 +19,11 @@ class FixedEmbedding(tf.keras.layers.Layer):
         self.embedding = None
 
     def build(self, input_shape):
-        super().build(input_shape=input_shape)
         self.embedding = self.add_weight(
             shape=(self.input_dimensions, self.output_dimensions), initializer=self.embeddings_initializer,
             name='fixed_embedding', regularizer=self.embeddings_regularizer, constraint=self.embeddings_constraint,
             experimental_autocast=False)
+        super().build(input_shape=input_shape)
 
     def call(self, inputs=None, **kwargs):
         return tf.expand_dims(self.embedding, axis=0)
