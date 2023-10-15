@@ -140,6 +140,8 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
         self.expand = tf.keras.layers.Reshape(input_shape[1:-1] + filters)
 
     def call(self, inputs, training=False, **kwargs):
+        if self.dropout is not None:
+            inputs = self.dropout(inputs, training=training)
         x, y = inputs, inputs
         g = self.flatten(self.g(inputs))
         if self.mode == 'embedding' or self.mode == 'dot':
