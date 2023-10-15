@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from .model import Model
-from ..layers.encoding import TokenAndPositionEmbedding
+from ..layers.encoding import TokenAndPositionEncoding, TokenAndPositionEmbedding
 from ..layers.transformer import Transformer
 
 
@@ -16,6 +16,7 @@ class Seq2SeqTransformer(Model):
                  decoder_units=None,
                  decoder_num_heads=None,
                  positional='embedding',
+                 max_wavelength=10000,
                  use_bias=True,
                  output_shape=None,
                  attention_axes=None,
@@ -48,18 +49,34 @@ class Seq2SeqTransformer(Model):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.input_embedding = TokenAndPositionEmbedding(
-            vocabulary_size=input_vocabulary_size, embedding_dimension=embedding_dimension, positional=positional,
-            sequence_length=sequence_length, embeddings_initializer=embeddings_initializer,
-            embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-            embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length, sparse=sparse,
-            rate=rate, seed=seed)
-        self.output_embedding = TokenAndPositionEmbedding(
-            vocabulary_size=output_vocabulary_size, embedding_dimension=embedding_dimension, positional=positional,
-            sequence_length=sequence_length, embeddings_initializer=embeddings_initializer,
-            embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-            embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length, sparse=sparse,
-            rate=rate, seed=seed)
+        if positional == 'encoding':
+            self.input_embedding = TokenAndPositionEncoding(
+                vocabulary_size=input_vocabulary_size, embedding_dimension=embedding_dimension,
+                max_wavelength=max_wavelength, embeddings_initializer=embeddings_initializer,
+                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
+                sparse=sparse, rate=rate, seed=seed)
+        else:
+            self.input_embedding = TokenAndPositionEmbedding(
+                sequence_length=sequence_length, vocabulary_size=input_vocabulary_size,
+                embedding_dimension=embedding_dimension, embeddings_initializer=embeddings_initializer,
+                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
+                sparse=sparse, rate=rate, seed=seed)
+        if positional == 'encoding':
+            self.output_embedding = TokenAndPositionEncoding(
+                vocabulary_size=output_vocabulary_size, embedding_dimension=embedding_dimension,
+                max_wavelength=max_wavelength, embeddings_initializer=embeddings_initializer,
+                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
+                sparse=sparse, rate=rate, seed=seed)
+        else:
+            self.output_embedding = TokenAndPositionEmbedding(
+                sequence_length=sequence_length, vocabulary_size=output_vocabulary_size,
+                embedding_dimension=embedding_dimension, embeddings_initializer=embeddings_initializer,
+                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
+                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
+                sparse=sparse, rate=rate, seed=seed)
         self.transformer = Transformer(
             encoder_units=encoder_units, encoder_num_heads=encoder_num_heads, decoder_units=decoder_units,
             decoder_num_heads=decoder_num_heads, use_bias=use_bias, output_shape=output_shape,
