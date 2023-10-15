@@ -26,7 +26,7 @@ class FixedEmbedding(tf.keras.layers.Layer):
             experimental_autocast=False)
 
     def call(self, inputs=None, **kwargs):
-        return self.embedding
+        return tf.expand_dims(self.embedding, axis=0)
 
     def get_config(self):
         config = super().get_config()
