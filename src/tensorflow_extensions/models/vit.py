@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from .model import Model
 from ..layers.dense import DenseBlock
-from ..layers.encoding import PatchEncoding2D
+from ..layers.encoding import PatchEmbedding2D
 from ..layers.transformer import TransformerEncoder
 
 
@@ -59,7 +59,7 @@ class ViT(Model):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.patch_encoding = PatchEncoding2D(
+        self.patch_encoding = PatchEmbedding2D(
             size=patch_size, embedding_dimension=embedding_dimension, mode=mode, strides=strides, rates=rates,
             padding=padding, data_format=data_format, dilation_rate=dilation_rate,
             convolution_groups=convolution_groups, use_bias=use_bias, kernel_initializer=kernel_initializer,
