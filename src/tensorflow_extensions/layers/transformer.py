@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 import tensorflow as tf
 
 
@@ -480,8 +482,8 @@ class TransformerEncoder(tf.keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        units = [units] if isinstance(units, int) else units
-        num_heads = [num_heads for _ in range(len(units))] if isinstance(num_heads, int) else num_heads
+        units = units if isinstance(units, Sequence) else [units]
+        num_heads = num_heads if isinstance(num_heads, Sequence) else [num_heads] * len(units)
         if len(units) != len(num_heads):
             raise ValueError(f'Number of `units` must match with number of `num_heads`')
 
@@ -587,6 +589,12 @@ class TransformerDecoder(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+
+        units = units if isinstance(units, Sequence) else [units]
+        num_heads = num_heads if isinstance(num_heads, Sequence) else [num_heads] * len(units)
+        if len(units) != len(num_heads):
+            raise ValueError(f'Number of `units` must match with number of `num_heads`')
+
         self.units = units
         self.num_heads = num_heads
         self.use_bias = use_bias
@@ -625,7 +633,7 @@ class TransformerDecoder(tf.keras.layers.Layer):
             gamma_constraint=gamma_constraint, rate=rate, seed=seed) for _units, _num_heads in zip(units, num_heads)]
 
     def call(self, inputs, context=None, training=False, **kwargs):
-        for layer in self.decoders:
+        for layer in self.decoder:
             inputs = layer(inputs, context=context, training=training)
         return inputs
 
@@ -691,10 +699,14 @@ class Transformer(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+
+        decoder_units = encoder_units if decoder_units is None else decoder_units
+        decoder_num_heads = encoder_num_heads if decoder_num_heads is None else decoder_num_heads
+
         self.encoder_units = encoder_units
         self.encoder_num_heads = encoder_num_heads
-        self.decoder_units = encoder_units if decoder_units is None else decoder_units
-        self.decoder_num_heads = encoder_num_heads if decoder_num_heads is None else decoder_num_heads
+        self.decoder_units = decoder_units
+        self.decoder_num_heads = decoder_num_heads
         self.use_bias = use_bias
         self._output_shape = output_shape
         self.attention_axes = attention_axes
