@@ -95,6 +95,10 @@ class DETR(tf.keras.models.Model):
     def build(self, input_shape):
         if self.backbone is None:
             self.backbone = tf.keras.applications.resnet.ResNet101(include_top=False, input_shape=input_shape[1:])
+
+        if not isinstance(self.backbone, tf.keras.Model):
+            raise TypeError('`backbone` must be an instance of Keras Model')
+
         for layer in self.backbone.layers:
             layer.trainable = False
         super().build(input_shape=input_shape)
