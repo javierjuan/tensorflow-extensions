@@ -31,7 +31,7 @@ class TransformerAttention(tf.keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.num_heads = num_heads
-        self.dropout = dropout
+        self.dropout = 0.0 if dropout is None else dropout
         self.use_bias = use_bias
         self._output_shape = output_shape
         self.attention_axes = attention_axes
