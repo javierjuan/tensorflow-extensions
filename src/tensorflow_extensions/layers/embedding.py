@@ -16,17 +16,12 @@ class FixedEmbedding(tf.keras.layers.Layer):
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.embeddings_constraint = embeddings_constraint
-        self.embedding = None
-
-    def build(self, input_shape):
         self.embedding = self.add_weight(
-            shape=(self.input_dimensions, self.output_dimensions), initializer=self.embeddings_initializer,
-            name='fixed_embedding', regularizer=self.embeddings_regularizer, constraint=self.embeddings_constraint,
-            experimental_autocast=False)
-        super().build(input_shape=input_shape)
+            shape=(input_dimensions, output_dimensions), initializer=embeddings_initializer, name='fixed_embedding',
+            regularizer=embeddings_regularizer, constraint=embeddings_constraint, experimental_autocast=False)
 
-    def call(self, inputs=None, **kwargs):
-        return tf.expand_dims(self.embedding, axis=0)
+    def call(self, batch_size=1, **kwargs):
+        return tf.tile(tf.expand_dims(self.embedding, axis=0), [batch_size, 1, 1])
 
     def get_config(self):
         config = super().get_config()
