@@ -204,7 +204,7 @@ class TokenAndPositionEncoding(tf.keras.layers.Layer):
         x = self.token_embedding(inputs)
         x = self.positional_encoding(x)
         if self.dropout is not None:
-            inputs = self.dropout(inputs, training=training)
+            x = self.dropout(x, training=training)
         return x
 
     def get_config(self):
@@ -272,7 +272,7 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         x = self.token_embedding(inputs)
         x = self.positional_embedding(x)
         if self.dropout is not None:
-            inputs = self.dropout(inputs, training=training)
+            x = self.dropout(x, training=training)
         return x
 
     def get_config(self):

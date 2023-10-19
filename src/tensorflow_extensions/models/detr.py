@@ -91,8 +91,10 @@ class DETR(tf.keras.models.Model):
             input_dimensions=num_queries, output_dimensions=encoder_units[-1],
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
+        self.batch_size = None
 
     def build(self, input_shape):
+        self.batch_size = input_shape[0]
         if self.backbone is None:
             self.backbone = tf.keras.applications.resnet.ResNet101(include_top=False, input_shape=input_shape[1:])
 
@@ -107,7 +109,8 @@ class DETR(tf.keras.models.Model):
         x = self.backbone(inputs, training=training)
         x = self.convolution(x)
         x = self.positional_embedding(x)
-        x = self.transformer([x, self.query(None)], training=training)
-        label = self.label(x)
-        bounding_box = self.bounding_box(x)
-        return label, bounding_box
+        x = self.transformer([x, self.query(batch_size=self.batch_size)], training=training)
+        return {
+            'label': self.label(x),
+            'bounding_box': self.bounding_box(x)
+        }
