@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 from .patch import PatchExtractor2D
+from .embedding import FixedEmbedding
 
 
 class PositionalEncoding1D(tf.keras.layers.Layer):
@@ -27,9 +28,9 @@ class PositionalEncoding1D(tf.keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         input_shape = tf.shape(inputs)
-        positions = tf.cast(tf.range(start=0, limit=input_shape[-2], delta=1), dtype=self.compute_dtype)
+        positions = tf.cast(tf.range(input_shape[-2]), dtype=self.compute_dtype)
         angles = tf.expand_dims(positions, axis=1) * self.timescales
-        encoding = (tf.math.sin(angles) * (1 - self.positions_mask) + tf.math.cos(angles) * self.positions_mask)
+        encoding = tf.math.sin(angles) * (1 - self.positions_mask) + tf.math.cos(angles) * self.positions_mask
         return self.add([inputs, tf.broadcast_to(encoding, shape=input_shape)])
 
     def get_config(self):
@@ -65,9 +66,8 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        embedding_dimension = input_shape[-1]
         self.embedding = tf.keras.layers.Embedding(
-            input_dim=self.sequence_length, output_dim=embedding_dimension,
+            input_dim=self.sequence_length, output_dim=input_shape[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
             mask_zero=False, input_length=self.input_length, sparse=self.sparse)
@@ -75,7 +75,7 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         input_shape = tf.shape(inputs)
-        positions = tf.cast(tf.range(start=0, limit=input_shape[-2], delta=1), self.compute_dtype)
+        positions = tf.cast(tf.range(input_shape[-2]), dtype=self.compute_dtype)
         return self.add([inputs, tf.broadcast_to(self.embedding(positions), shape=input_shape)])
 
     def get_config(self):
@@ -96,55 +96,39 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
     def __init__(self,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
-                 activity_regularizer=None,
                  embeddings_constraint=None,
-                 input_length=None,
-                 sparse=False,
-                 axis=-1,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
-        self.activity_regularizer = activity_regularizer
         self.embeddings_constraint = embeddings_constraint
-        self.input_length = input_length
-        self.sparse = sparse
-        self.axis = axis
         self.supports_masking = True
 
-        self.rows = None
-        self.row_positions = None
         self.row_embedding = None
-        self.cols = None
-        self.col_positions = None
         self.col_embedding = None
-        self.concatenate = tf.keras.layers.Concatenate(axis=axis)
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
-        self.rows, self.cols = input_shape[-3], input_shape[-2]
         embedding_dimension = input_shape[-1] // 2
-        self.row_positions = tf.cast(tf.range(start=0, limit=self.rows, delta=1), self.compute_dtype)
-        self.row_embedding = tf.keras.layers.Embedding(
-            input_dim=self.rows, output_dim=embedding_dimension, embeddings_initializer=self.embeddings_initializer,
-            embeddings_regularizer=self.embeddings_regularizer, activity_regularizer=self.activity_regularizer,
-            embeddings_constraint=self.embeddings_constraint, mask_zero=False, input_length=self.input_length,
-            sparse=self.sparse)
-        self.col_positions = tf.cast(tf.range(start=0, limit=self.cols, delta=1), self.compute_dtype)
-        self.col_embedding = tf.keras.layers.Embedding(
-            input_dim=self.cols, output_dim=embedding_dimension, embeddings_initializer=self.embeddings_initializer,
-            embeddings_regularizer=self.embeddings_regularizer, activity_regularizer=self.activity_regularizer,
-            embeddings_constraint=self.embeddings_constraint, mask_zero=False, input_length=self.input_length,
-            sparse=self.sparse)
+        self.row_embedding = FixedEmbedding(
+            input_dim=input_shape[-3], output_dim=embedding_dimension,
+            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
+            embeddings_constraint=self.embeddings_constraint)
+        self.col_embedding = FixedEmbedding(
+            input_dim=input_shape[-2], output_dim=embedding_dimension,
+            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
+            embeddings_constraint=self.embeddings_constraint)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        rows_embedding = tf.tile(tf.expand_dims(self.row_embedding(self.row_positions), axis=1), [1, self.cols, 1])
-        cols_embedding = tf.tile(tf.expand_dims(self.col_embedding(self.col_positions), axis=0), [self.rows, 1, 1])
-        embedding = self.concatenate([rows_embedding, cols_embedding])
-        embedding = tf.reshape(embedding, shape=[embedding.shape[-3] * embedding.shape[-2], embedding.shape[-1]])
-        inputs = tf.reshape(inputs, shape=[-1, inputs.shape[-3] * inputs.shape[-2], inputs.shape[-1]])
+        inputs_shape = tf.shape(inputs)
+        rows_embedding = tf.tile(tf.expand_dims(self.row_embedding(None), axis=1), multiples=[1, inputs_shape[-2], 1])
+        cols_embedding = tf.tile(tf.expand_dims(self.col_embedding(None), axis=0), multiples=[inputs_shape[-3], 1, 1])
+        embedding = tf.concat([rows_embedding, cols_embedding], axis=-1)
+        embedding_shape = tf.shape(embedding)
+        embedding = tf.reshape(embedding, shape=[embedding_shape[-3] * embedding_shape[-2], embedding_shape[-1]])
+        inputs = tf.reshape(inputs, shape=[-1, inputs_shape[-3] * inputs_shape[-2], inputs_shape[-1]])
         return self.add([inputs, tf.broadcast_to(embedding, shape=tf.shape(inputs))])
 
     def get_config(self):
@@ -152,11 +136,7 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
         config.update({
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
-            'activity_regularizer': self.activity_regularizer,
-            'embeddings_constraint': self.embeddings_constraint,
-            'input_length': self.input_length,
-            'sparse': self.sparse,
-            'axis': self.axis
+            'embeddings_constraint': self.embeddings_constraint
         })
         return config
 
@@ -316,9 +296,6 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  embeddings_constraint=None,
-                 mask_zero=False,
-                 input_length=None,
-                 sparse=False,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
@@ -342,9 +319,6 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.embeddings_constraint = embeddings_constraint
-        self.mask_zero = mask_zero
-        self.input_length = input_length
-        self.sparse = sparse
         self.supports_masking = True
 
         self.class_token = self.add_weight(shape=[1, 1, embedding_dimension], name='class_token', trainable=True)
@@ -370,15 +344,13 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
                              f'`patch` or `crop`.')
         self.add = tf.keras.layers.Add()
         self.embedding = None
-        self.positions = None
 
     def build(self, input_shape):
-        self.embedding = tf.keras.layers.Embedding(
+        # TODO: Not sure input_dim=input_shape[-2]
+        self.embedding = FixedEmbedding(
             input_dim=input_shape[-2], output_dim=self.embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
-            activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
-            mask_zero=self.mask_zero, input_length=self.input_length, sparse=self.sparse)
-        self.positions = tf.expand_dims(tf.range(start=0, limit=input_shape[1], delta=1), axis=0)
+            embeddings_constraint=self.embeddings_constraint)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
@@ -389,7 +361,7 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
         else:
             patches = self.convolution(inputs)
         patches = tf.reshape(patches, shape=[-1, patches.shape[1] * patches.shape[2], patches.shape[3]])
-        return self.add([patches, self.embedding(self.positions)])
+        return self.add([patches, self.embedding(None)])
 
     def get_config(self):
         config = super().get_config()
@@ -413,9 +385,6 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
             'bias_constraint': self.bias_constraint,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
-            'embeddings_constraint': self.embeddings_constraint,
-            'mask_zero': self.mask_zero,
-            'input_length': self.input_length,
-            'sparse': self.sparse
+            'embeddings_constraint': self.embeddings_constraint
         })
         return config
