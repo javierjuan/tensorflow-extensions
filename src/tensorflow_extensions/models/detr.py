@@ -1,7 +1,6 @@
 from collections.abc import Sequence
 
 import tensorflow as tf
-from scipy.optimize import linear_sum_assignment
 
 from ..layers.embedding import FixedEmbedding
 from ..layers.encoding import PositionalEmbedding2D
@@ -10,12 +9,23 @@ from ..models.model import Model
 
 
 class DETRModel(Model):
-    @tf.numpy_function(Tout=[tf.int32, tf.int32])
-    def tf_linear_sum_assignment(self, cost_matrix):
-        return linear_sum_assignment(cost_matrix)
+    def __init__(self, name, **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.loss_tracker = tf.keras.metrics.Mean(name='loss')
 
     def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None):
-        return self.loss(y_true=y, y_pred=y_pred, sample_weight=sample_weight)
+        loss = self.loss(y_true=y, y_pred=y_pred, sample_weight=sample_weight)
+        if self.losses:
+            loss += tf.math.add_n(self.losses)
+        self.loss_tracker.update_state(loss)
+        return loss
+
+    def reset_metrics(self):
+        self.loss_tracker.reset_states()
+
+    @property
+    def metrics(self):
+        return [self.loss_tracker]
 
 
 class DETR(DETRModel):
