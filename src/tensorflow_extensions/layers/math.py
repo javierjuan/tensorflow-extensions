@@ -20,6 +20,29 @@ class ExpandDimensions(tf.keras.layers.Layer):
         return config
 
 
+class CartesianConcatenation2D(tf.keras.layers.Layer):
+    def __init__(self,
+                 name=None,
+                 axis=-1,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.axis = axis
+
+    def call(self, inputs, **kwargs):
+        x, y = inputs
+        x_shape, y_shape = tf.shape(x), tf.shape(y)
+        tile_x = tf.tile(tf.expand_dims(x, axis=2), multiples=[1, 1, y_shape[1], 1])
+        tile_y = tf.tile(tf.expand_dims(y, axis=1), multiples=[1, x_shape[1], 1, 1])
+        return tf.concat([tile_x, tile_y], axis=self.axis)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'axis': self.axis
+        })
+        return config
+
+
 class MathReduce(tf.keras.layers.Layer):
     def __init__(self,
                  reduce_mode,
