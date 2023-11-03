@@ -27,9 +27,9 @@ def compute_ciou(boxes1, boxes2):
 
     intersect_height = intersect_ymax - intersect_ymin
     intersect_width = intersect_xmax - intersect_xmin
-    zeros_t = tf.cast(0, intersect_height.dtype)
-    intersect_height = tf.math.maximum(zeros_t, intersect_height)
-    intersect_width = tf.math.maximum(zeros_t, intersect_width)
+    zero = tf.cast(0, intersect_height.dtype)
+    intersect_height = tf.math.maximum(zero, intersect_height)
+    intersect_width = tf.math.maximum(zero, intersect_width)
     intersect_area = intersect_height * intersect_width
 
     boxes1_area = tf.squeeze((y_max1 - y_min1) * (x_max1 - x_min1), axis=-1)
@@ -50,9 +50,9 @@ def compute_ciou(boxes1, boxes2):
     centers_distance_squared = (((x_min1 + x_max1) / 2 - tf.transpose((x_min2 + x_max2) / 2, perm)) ** 2 +
                                 ((y_min1 + y_max1) / 2 - tf.transpose((y_min2 + y_max2) / 2, perm)) ** 2)
 
-    width_1 = x_max1 - x_min1 + tf.keras.backend.epsilon()
+    width_1 = x_max1 - x_min1
     height_1 = y_max1 - y_min1 + tf.keras.backend.epsilon()
-    width_2 = x_max2 - x_min2 + tf.keras.backend.epsilon()
+    width_2 = x_max2 - x_min2
     height_2 = y_max2 - y_min2 + tf.keras.backend.epsilon()
 
     v = tf.math.pow((4 / math.pi ** 2) * (tf.transpose(tf.math.atan(width_2 / height_2), perm) -
