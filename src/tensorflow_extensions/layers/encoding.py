@@ -2,6 +2,7 @@ import tensorflow as tf
 
 from .patch import PatchExtractor2D
 from .embedding import FixedEmbedding
+from .math import CartesianConcatenation2D
 
 
 class PositionalEncoding1D(tf.keras.layers.Layer):
@@ -107,29 +108,30 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
 
         self.row_embedding = None
         self.col_embedding = None
+        self.cartesian_concatenation = CartesianConcatenation2D()
         self.add = tf.keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1] // 2
         self.row_embedding = FixedEmbedding(
-            input_dim=input_shape[-3], output_dim=embedding_dimension,
+            input_dim=input_shape[-3], output_dim=embedding_dimension, add_batch_size_dimension=True,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
         self.col_embedding = FixedEmbedding(
-            input_dim=input_shape[-2], output_dim=embedding_dimension,
+            input_dim=input_shape[-2], output_dim=embedding_dimension, add_batch_size_dimension=True,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         inputs_shape = tf.shape(inputs)
-        rows_embedding = tf.tile(tf.expand_dims(self.row_embedding(None), axis=1), multiples=[1, inputs_shape[-2], 1])
-        cols_embedding = tf.tile(tf.expand_dims(self.col_embedding(None), axis=0), multiples=[inputs_shape[-3], 1, 1])
-        embedding = tf.concat([rows_embedding, cols_embedding], axis=-1)
+        rows_embedding = self.row_embedding(batch_size=inputs_shape[0])
+        cols_embedding = self.col_embedding(batch_size=inputs_shape[0])
+        embedding = self.cartesian_concatenation([rows_embedding, cols_embedding])
         embedding_shape = tf.shape(embedding)
-        embedding = tf.reshape(embedding, shape=[embedding_shape[-3] * embedding_shape[-2], embedding_shape[-1]])
+        embedding = tf.reshape(embedding, shape=[-1, embedding_shape[-3] * embedding_shape[-2], embedding_shape[-1]])
         inputs = tf.reshape(inputs, shape=[-1, inputs_shape[-3] * inputs_shape[-2], inputs_shape[-1]])
-        return self.add([inputs, tf.broadcast_to(embedding, shape=tf.shape(inputs))])
+        return self.add([inputs, embedding])
 
     def get_config(self):
         config = super().get_config()
