@@ -71,3 +71,4 @@ class RandomAugmentation(tf.keras.layers.Layer):
             'seed': self.seed,
             'bounding_box_format': self.bounding_box_format
         })
+        return config

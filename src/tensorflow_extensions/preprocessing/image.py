@@ -47,3 +47,4 @@ class Standard2D(tf.keras.layers.Layer):
             'interpolation': self.interpolation,
             'axis': self.axis
         })
+        return config
