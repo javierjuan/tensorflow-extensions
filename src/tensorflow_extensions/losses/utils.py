@@ -2,12 +2,14 @@ import tensorflow as tf
 
 
 @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 def _label_smoothing(y_true, label_smoothing):
     num_labels = tf.cast(tf.shape(y_true)[-1], tf.float32)
     return y_true * (1.0 - label_smoothing) + (label_smoothing / num_labels)
 
 
 @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 def initialize_loss(y_true, y_pred, label_smoothing=0.1, from_logits=False):
     y_pred = tf.cast(tf.convert_to_tensor(y_pred), dtype=tf.float32)
     y_true = tf.cast(tf.convert_to_tensor(y_true), dtype=tf.float32)
@@ -27,6 +29,7 @@ def initialize_loss(y_true, y_pred, label_smoothing=0.1, from_logits=False):
 
 
 @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 def finalize_loss(loss, reduction='sum', label_penalties=None):
     if label_penalties is not None:
         label_penalties = 1.0 + tf.cast(tf.convert_to_tensor(label_penalties), dtype=tf.float32)

@@ -3,6 +3,7 @@ import tensorflow as tf
 from .math import MatrixMultiplication
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class NonLocalBlock2D(tf.keras.layers.Layer):
     def __init__(self,
                  mode,

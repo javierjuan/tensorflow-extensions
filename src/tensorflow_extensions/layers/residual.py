@@ -3,6 +3,7 @@ import tensorflow as tf
 from .attention import ConvolutionalAttention2D
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ResidualBlock2D(tf.keras.layers.Layer):
     def __init__(self,
                  layer,

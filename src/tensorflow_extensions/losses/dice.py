@@ -4,6 +4,7 @@ from .utils import initialize_loss, finalize_loss
 
 
 @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 def dice_score(y_true, y_pred):
     # IMPORTANT: The denominator MUST be squared for mathematical correctness. Dice metric is defined for discrete
     # sets of labels. For continuous probability arrays the denominator must be squared in order to accomplish with
@@ -14,6 +15,7 @@ def dice_score(y_true, y_pred):
     return tf.math.divide_no_nan(numerator, denominator)
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 class Dice(tf.keras.losses.Loss):
     def __init__(self, label_smoothing=0.1, label_penalties=None, from_logits=False,
                  reduction=tf.keras.losses.Reduction.AUTO, name='dice'):

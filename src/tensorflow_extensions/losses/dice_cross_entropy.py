@@ -5,6 +5,7 @@ from .utils import initialize_loss, finalize_loss
 
 
 @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 def _cross_entropy_loss(y_true, y_pred):
     loss = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False, label_smoothing=0)
     # Reduce to be compatible with the other losses
@@ -12,6 +13,7 @@ def _cross_entropy_loss(y_true, y_pred):
     return tf.reduce_mean(loss, axis=axis_reduce)
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 class DicePlusCategoricalCrossEntropy(tf.keras.losses.Loss):
     def __init__(self, label_smoothing=0.1, label_penalties=None, from_logits=False,
                  reduction=tf.keras.losses.Reduction.AUTO, name='dice_plus_categorical_cross_entropy'):

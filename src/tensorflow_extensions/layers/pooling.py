@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ChannelAveragePooling(tf.keras.layers.Layer):
     def __init__(self,
                  keepdims=False,
@@ -29,6 +30,7 @@ class ChannelAveragePooling(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ChannelMaxPooling(tf.keras.layers.Layer):
     def __init__(self,
                  keepdims=False,

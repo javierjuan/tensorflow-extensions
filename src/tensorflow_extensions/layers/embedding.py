@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class FixedEmbedding(tf.keras.layers.Layer):
     def __init__(self,
                  input_dim,

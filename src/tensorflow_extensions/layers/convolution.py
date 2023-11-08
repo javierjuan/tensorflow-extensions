@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ConvolutionBlock2D(tf.keras.layers.Layer):
     def __init__(self,
                  filters,

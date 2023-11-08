@@ -4,6 +4,7 @@ from .dense import DenseBlock
 from .pooling import ChannelMaxPooling, ChannelAveragePooling
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ConvolutionalAttention2D(tf.keras.layers.Layer):
     def __init__(self,
                  reduction_factor=8,
@@ -138,6 +139,7 @@ class ConvolutionalAttention2D(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ChannelAttention2D(tf.keras.layers.Layer):
     def __init__(self,
                  reduction_factor=8,
@@ -269,6 +271,7 @@ class ChannelAttention2D(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class SpatialAttention2D(tf.keras.layers.Layer):
     def __init__(self,
                  kernel_size=(7, 7),

@@ -3,6 +3,7 @@ from collections.abc import Sequence
 import tensorflow as tf
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TransformerAttention(tf.keras.layers.Layer):
     def __init__(self,
                  num_heads,
@@ -113,6 +114,7 @@ class TransformerAttention(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TransformerFeedForward(tf.keras.layers.Layer):
     def __init__(self,
                  units,
@@ -224,6 +226,7 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TransformerEncoderLayer(tf.keras.layers.Layer):
     def __init__(self,
                  units,
@@ -333,6 +336,7 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TransformerDecoderLayer(tf.keras.layers.Layer):
     def __init__(self,
                  units,
@@ -451,6 +455,7 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TransformerEncoder(tf.keras.layers.Layer):
     def __init__(self,
                  units,
@@ -559,6 +564,7 @@ class TransformerEncoder(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TransformerDecoder(tf.keras.layers.Layer):
     def __init__(self,
                  units,
@@ -667,6 +673,7 @@ class TransformerDecoder(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class Transformer(tf.keras.layers.Layer):
     def __init__(self,
                  encoder_units,

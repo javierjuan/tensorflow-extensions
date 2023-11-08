@@ -5,6 +5,7 @@ from .embedding import FixedEmbedding
 from .math import CartesianConcatenation2D
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class PositionalEncoding1D(tf.keras.layers.Layer):
     def __init__(self,
                  max_wavelength=10000,
@@ -42,6 +43,7 @@ class PositionalEncoding1D(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class PositionalEmbedding1D(tf.keras.layers.Layer):
     def __init__(self,
                  sequence_length,
@@ -93,6 +95,7 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class PositionalEmbedding2D(tf.keras.layers.Layer):
     def __init__(self,
                  embeddings_initializer='uniform',
@@ -143,6 +146,7 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TokenAndPositionEncoding(tf.keras.layers.Layer):
     def __init__(self,
                  vocabulary_size,
@@ -208,6 +212,7 @@ class TokenAndPositionEncoding(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class TokenAndPositionEmbedding(tf.keras.layers.Layer):
     def __init__(self,
                  sequence_length,
@@ -276,6 +281,7 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class PatchEmbedding2D(tf.keras.layers.Layer):
     def __init__(self,
                  size,

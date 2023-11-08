@@ -4,6 +4,7 @@ from .utils import initialize_loss, finalize_loss
 
 
 @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 def tversky_score(y_true, y_pred, alpha=0.5, beta=0.5):
     # WARNING!: This is not a mathematically correct formula. p1 = 1 - y_pred and g1 = 1 - y_true try to imitate the
     # operation `relative complement` (|A\B|) of two discrete sets of labels, but p1 and g1 are not equivalents of
@@ -24,6 +25,7 @@ def tversky_score(y_true, y_pred, alpha=0.5, beta=0.5):
     return tf.math.divide_no_nan(numerator, denominator)
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 class Tversky(tf.keras.losses.Loss):
     def __init__(self, alpha=0.5, beta=0.5, label_smoothing=0.1, label_penalties=None, from_logits=False,
                  reduction=tf.keras.losses.Reduction.AUTO, name='tversky'):

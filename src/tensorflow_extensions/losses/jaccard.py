@@ -4,6 +4,7 @@ from .dice import dice_score
 from .utils import initialize_loss, finalize_loss
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 class Jaccard(tf.keras.losses.Loss):
     def __init__(self, label_smoothing=0.1, label_penalties=None, from_logits=False,
                  reduction=tf.keras.losses.Reduction.AUTO, name='jaccard'):

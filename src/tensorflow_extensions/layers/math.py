@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class ExpandDimensions(tf.keras.layers.Layer):
     def __init__(self,
                  axis=-1,
@@ -20,6 +21,7 @@ class ExpandDimensions(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class CartesianConcatenation2D(tf.keras.layers.Layer):
     def __init__(self,
                  name=None,
@@ -43,6 +45,7 @@ class CartesianConcatenation2D(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class MathReduce(tf.keras.layers.Layer):
     def __init__(self,
                  reduce_mode,
@@ -78,6 +81,7 @@ class MathReduce(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class MatrixMultiplication(tf.keras.layers.Layer):
     def call(self, a, b, transpose_a=False, transpose_b=False, adjoint_a=False, adjoint_b=False, **kwargs):
         return tf.linalg.matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b, adjoint_a=adjoint_a,

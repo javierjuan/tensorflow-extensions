@@ -6,6 +6,7 @@ from ..layers.encoding import PatchEmbedding2D
 from ..layers.transformer import TransformerEncoder
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.models')
 class ViT(Model):
     def __init__(self,
                  patch_size,

@@ -3,6 +3,7 @@ import tensorflow as tf
 from .convolution import ConvolutionBlock2D
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class InceptionBlock2D(tf.keras.layers.Layer):
     def __init__(self,
                  filters,

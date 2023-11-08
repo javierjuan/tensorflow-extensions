@@ -5,6 +5,7 @@ from ..layers.encoding import TokenAndPositionEncoding, TokenAndPositionEmbeddin
 from ..layers.transformer import Transformer
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.models')
 class Seq2SeqTransformer(Model):
     def __init__(self,
                  input_vocabulary_size,
