@@ -117,11 +117,11 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
     def build(self, input_shape):
         embedding_dimension = input_shape[-1] // 2
         self.row_embedding = FixedEmbedding(
-            input_dim=input_shape[-3], output_dim=embedding_dimension, add_batch_size_dimension=True,
+            input_dim=input_shape[-3], output_dim=embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
         self.col_embedding = FixedEmbedding(
-            input_dim=input_shape[-2], output_dim=embedding_dimension, add_batch_size_dimension=True,
+            input_dim=input_shape[-2], output_dim=embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
         super().build(input_shape=input_shape)

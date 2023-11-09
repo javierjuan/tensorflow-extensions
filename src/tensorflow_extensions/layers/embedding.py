@@ -6,7 +6,6 @@ class FixedEmbedding(tf.keras.layers.Layer):
     def __init__(self,
                  input_dim,
                  output_dim,
-                 add_batch_size_dimension=False,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  embeddings_constraint=None,
@@ -18,25 +17,24 @@ class FixedEmbedding(tf.keras.layers.Layer):
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.embeddings_constraint = embeddings_constraint
-        self.add_batch_size_dimension = add_batch_size_dimension
 
         self.embedding = self.add_weight(
-            shape=(1, input_dim, output_dim) if add_batch_size_dimension else (input_dim, output_dim),
-            initializer=embeddings_initializer, name='fixed_embedding', regularizer=embeddings_regularizer,
-            constraint=embeddings_constraint, experimental_autocast=False)
+            shape=(input_dim, output_dim), initializer=embeddings_initializer, regularizer=embeddings_regularizer,
+            constraint=embeddings_constraint, name='fixed_embedding')
 
     def call(self, batch_size=None, **kwargs):
-        if self.add_batch_size_dimension and batch_size is not None:
-            return tf.tile(self.embedding, multiples=[batch_size, 1, 1])
-        else:
+        if batch_size is None:
             return self.embedding
+        else:
+            x = tf.expand_dims(self.embedding, axis=0)
+            multiples = tf.one_hot(indices=0, depth=tf.rank(x), on_value=batch_size, off_value=1, dtype=tf.int32)
+            return tf.tile(x, multiples=multiples)
 
     def get_config(self):
         config = super().get_config()
         config.update({
             'input_dim': self.input_dim,
             'output_dim': self.output_dim,
-            'add_batch_size_dimension': self.add_batch_size_dimension,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
             'embeddings_constraint': self.embeddings_constraint
