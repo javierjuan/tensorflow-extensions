@@ -22,6 +22,31 @@ class ExpandDimensions(tf.keras.layers.Layer):
 
 
 @tf.keras.saving.register_keras_serializable(package='tfe.layers')
+class Replicate(tf.keras.layers.Layer):
+    def __init__(self,
+                 times,
+                 axis,
+                 name=None,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.times = times
+        self.axis = axis
+
+    def call(self, inputs, **kwargs):
+        x = tf.expand_dims(inputs, axis=self.axis)
+        multiples = tf.one_hot(indices=self.axis, depth=tf.rank(x), on_value=self.times, off_value=1, dtype=tf.int32)
+        return tf.tile(x, multiples=multiples)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'times': self.times,
+            'axis': self.axis
+        })
+        return config
+
+
+@tf.keras.saving.register_keras_serializable(package='tfe.layers')
 class CartesianConcatenation2D(tf.keras.layers.Layer):
     def __init__(self,
                  name=None,
