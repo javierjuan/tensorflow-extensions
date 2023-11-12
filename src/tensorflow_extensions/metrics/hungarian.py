@@ -6,18 +6,15 @@ from ..matchers.hungarian import compute_giou
 
 @tf.keras.saving.register_keras_serializable(package='tfe.metrics')
 class Hungarian(tf.keras.metrics.Metric):
-    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1, mode='giou', name=None, **kwargs):
+    def __init__(self, padding_axis=-1, mode='giou', name=None, **kwargs):
         super().__init__(name=name, **kwargs)
-        self.label_weight = label_weight
-        self.bounding_box_weight = bounding_box_weight
         self.padding_axis = padding_axis
         self.mode = mode
 
         self.matcher = HungarianMatcher(mode=mode)
-        self.ciou = self.add_weight(name='ciou', initializer='zeros')
+        self.giou = self.add_weight(name='giou', initializer='zeros')
         self.accuracy = self.add_weight(name='accuracy', initializer='zeros')
         self.objects = self.add_weight(name='objects', initializer='zeros')
-        self.normalizer = self.add_weight(name='normalizer', initializer='zeros')
 
     @staticmethod
     def compute_label_metric(y_true, y_pred):
@@ -57,11 +54,11 @@ class Hungarian(tf.keras.metrics.Metric):
             ciou.append(bounding_box_metric)
             objects.append(tf.math.reduce_sum(tf.cast(mask, dtype=tf.float32)))
         self.accuracy.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(accuracy)))
-        self.ciou.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(ciou)))
+        self.giou.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(ciou)))
         self.objects.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(objects)))
 
     def result(self):
-        return {'ciou': tf.math.divide_no_nan(self.ciou, self.objects),
+        return {'giou': tf.math.divide_no_nan(self.giou, self.objects),
                 'accuracy': tf.math.divide_no_nan(self.accuracy, self.objects)}
 
     def reset_state(self):
@@ -71,7 +68,7 @@ class Hungarian(tf.keras.metrics.Metric):
     def get_config(self):
         config = super().get_config()
         config.update({
-            'label_weight': self.label_weight,
-            'bounding_box_weight': self.bounding_box_weight
+            'padding_axis': self.padding_axis,
+            'mode': self.mode
         })
         return config
