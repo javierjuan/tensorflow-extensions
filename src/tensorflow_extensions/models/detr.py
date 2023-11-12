@@ -10,11 +10,10 @@ from ..models.model import Model
 
 @tf.keras.saving.register_keras_serializable(package='tfe.models')
 class DETRModel(Model):
-    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1, name=None, **kwargs):
+    def __init__(self, padding_axis=-1, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
-        self.metric = Hungarian(label_weight=label_weight, bounding_box_weight=bounding_box_weight,
-                                padding_axis=padding_axis, name='hungarian')
+        self.metric = Hungarian(padding_axis=padding_axis, name='hungarian')
 
     def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None):
         del x
