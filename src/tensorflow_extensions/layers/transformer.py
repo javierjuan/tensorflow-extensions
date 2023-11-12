@@ -487,8 +487,8 @@ class TransformerEncoder(tf.keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        units = units if isinstance(units, Sequence) else [units]
-        num_heads = num_heads if isinstance(num_heads, Sequence) else [num_heads] * len(units)
+        units = units if isinstance(units, (tuple, list)) else [units]
+        num_heads = num_heads if isinstance(num_heads, (tuple, list)) else [num_heads] * len(units)
         if len(units) != len(num_heads):
             raise ValueError(f'Number of `units` must match with number of `num_heads`')
 
@@ -596,8 +596,8 @@ class TransformerDecoder(tf.keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        units = units if isinstance(units, Sequence) else [units]
-        num_heads = num_heads if isinstance(num_heads, Sequence) else [num_heads] * len(units)
+        units = units if isinstance(units, (tuple, list)) else [units]
+        num_heads = num_heads if isinstance(num_heads, (tuple, list)) else [num_heads] * len(units)
         if len(units) != len(num_heads):
             raise ValueError(f'Number of `units` must match with number of `num_heads`')
 
