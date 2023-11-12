@@ -1,40 +1,44 @@
-from collections.abc import Sequence
-
 import tensorflow as tf
 
 from ..layers.embedding import FixedEmbedding
 from ..layers.encoding import PositionalEmbedding2D
+from ..layers.mlp import MultiLayerPerceptron
 from ..layers.transformer import Transformer
+from ..metrics import Hungarian
 from ..models.model import Model
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.models')
 class DETRModel(Model):
-    def __init__(self, name, **kwargs):
+    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
+        self.metric = Hungarian(label_weight=label_weight, bounding_box_weight=bounding_box_weight,
+                                padding_axis=padding_axis, name='hungarian')
 
     def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None):
+        del x
         loss = self.loss(y_true=y, y_pred=y_pred, sample_weight=sample_weight)
         if self.losses:
             loss += tf.math.add_n(self.losses)
         self.loss_tracker.update_state(loss)
         return loss
 
-    def reset_metrics(self):
-        self.loss_tracker.reset_states()
-
-    @property
-    def metrics(self):
-        return [self.loss_tracker]
+    def compute_metrics(self, x, y, y_pred, sample_weight):
+        self.metric.update_state(y_true=y, y_pred=y_pred)
+        return super().compute_metrics(x=x, y=y, y_pred=y_pred, sample_weight=sample_weight)
 
 
+@tf.keras.saving.register_keras_serializable(package='tfe.models')
 class DETR(DETRModel):
     def __init__(self,
                  num_queries,
                  num_labels,
+                 embedding_dimension,
                  encoder_units,
                  encoder_num_heads,
                  backbone=None,
+                 train_backbone=True,
                  decoder_units=None,
                  decoder_num_heads=None,
                  use_bias=True,
@@ -74,13 +78,14 @@ class DETR(DETRModel):
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-        encoder_units = encoder_units if isinstance(encoder_units, Sequence) else [encoder_units]
+        encoder_units = encoder_units if isinstance(encoder_units, (tuple, list)) else [encoder_units]
 
         self.num_queries = num_queries
         self.num_labels = num_labels
+        self.embedding_dimension = embedding_dimension
         self.encoder_units = encoder_units
         self.encoder_num_heads = encoder_num_heads
-        self.backbone = backbone
+        self.train_backbone = train_backbone
         self.decoder_units = decoder_units
         self.decoder_num_heads = decoder_num_heads
         self.use_bias = use_bias
@@ -117,9 +122,9 @@ class DETR(DETRModel):
         self.rate = rate
         self.seed = seed
 
-        self.backbone = backbone
+        self.backbone = tf.keras.applications.resnet.ResNet50(include_top=False) if backbone is None else backbone
         self.convolution = tf.keras.layers.Convolution2D(
-            filters=encoder_units[-1], kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
+            filters=embedding_dimension, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
             dilation_rate=dilation_rate, groups=convolution_groups, activation=None, use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -138,30 +143,30 @@ class DETR(DETRModel):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.label = tf.keras.layers.Dense(
-            units=num_labels + 1, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+        self.label = MultiLayerPerceptron(
+            units=[128, num_labels + 1], activation=['mish', 'softmax'], use_bias=use_bias,
+            normalization=['layer', None], kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
-        self.bounding_box = tf.keras.layers.Dense(
-            units=4, activation='sigmoid', use_bias=use_bias, kernel_initializer=kernel_initializer,
+        self.bounding_box = MultiLayerPerceptron(
+            units=[64, 16, 4], activation=['mish', 'mish', 'sigmoid'], use_bias=use_bias,
+            normalization=['layer', 'layer', None], kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
         self.query = FixedEmbedding(
-            input_dim=self.num_queries, output_dim=self.encoder_units[-1], add_batch_size_dimension=True,
+            input_dim=self.num_queries, output_dim=self.encoder_units[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
 
     def build(self, input_shape):
-        if self.backbone is None:
-            self.backbone = tf.keras.applications.resnet.ResNet101(include_top=False, input_shape=input_shape[1:])
-
         if not isinstance(self.backbone, tf.keras.Model):
             raise TypeError('`backbone` must be an instance of Keras Model')
 
-        for layer in self.backbone.layers:
-            layer.trainable = False
+        if not self.train_backbone:
+            for layer in self.backbone.layers:
+                layer.trainable = False
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=None, mask=None):
@@ -176,9 +181,11 @@ class DETR(DETRModel):
         config.update({
             'num_queries': self.num_queries,
             'num_labels': self.num_labels,
+            'embedding_dimension': self.embedding_dimension,
             'encoder_units': self.encoder_units,
             'encoder_num_heads': self.encoder_num_heads,
             'backbone': self.backbone,
+            'train_backbone': self.train_backbone,
             'decoder_units': self.decoder_units,
             'decoder_num_heads': self.decoder_num_heads,
             'use_bias': self.use_bias,
@@ -215,3 +222,4 @@ class DETR(DETRModel):
             'rate': self.rate,
             'seed': self.seed
         })
+        return config
