@@ -10,3 +10,4 @@ from .patch import *
 from .pooling import *
 from .residual import *
 from .transformer import *
+from .mlp import *
