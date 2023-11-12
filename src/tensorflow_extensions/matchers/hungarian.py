@@ -91,33 +91,26 @@ def compute_giou(bounding_box_1, bounding_box_2, mode='giou'):
 
 # @tf.function
 @tf.keras.saving.register_keras_serializable(package='tfe.matchers')
-def compute_matching(y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box, label_weight=1.0,
-                     bounding_box_weight=1.0, mode='giou'):
+def compute_matching(y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box, mode='giou'):
     label_scores = 1.0 - tf.linalg.matmul(y_true_label, y_pred_label, transpose_b=True, a_is_sparse=True)
     bounding_box_scores = 1.0 - compute_giou(y_true_bounding_box, y_pred_bounding_box, mode)
-    cost_matrix = label_weight * label_scores + bounding_box_weight * bounding_box_scores
+    cost_matrix = label_scores + bounding_box_scores
     return linear_sum_assignment(cost_matrix)
 
 
 @tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 class Hungarian(tf.Module):
     def __init__(self,
-                 label_weight=1.0,
-                 bounding_box_weight=1.0,
                  mode='giou',
                  name=None):
         super().__init__(name=name)
-        self.label_weight = label_weight
-        self.bounding_box_weight = bounding_box_weight
         self.mode = mode
 
     def __call__(self, y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box, padding_axis=None):
         with self.name_scope:
             return tf.stop_gradient(
                 compute_matching(y_true_label=y_true_label, y_true_bounding_box=y_true_bounding_box,
-                                 y_pred_label=y_pred_label, y_pred_bounding_box=y_pred_bounding_box,
-                                 label_weight=self.label_weight, bounding_box_weight=self.bounding_box_weight,
-                                 mode=self.mode))
+                                 y_pred_label=y_pred_label, y_pred_bounding_box=y_pred_bounding_box, mode=self.mode))
 
     @classmethod
     def from_config(cls, config):
@@ -125,7 +118,5 @@ class Hungarian(tf.Module):
 
     def get_config(self):
         return {
-            'label_weight': self.label_weight,
-            'bounding_box_weight': self.bounding_box_weight,
             'mode': self.mode
         }
