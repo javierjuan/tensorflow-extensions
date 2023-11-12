@@ -13,7 +13,7 @@ class DETRModel(Model):
     def __init__(self, padding_axis=-1, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
-        self.metric = Hungarian(padding_axis=padding_axis, name='hungarian')
+        self.metric = Hungarian(padding_axis=padding_axis)
 
     def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None):
         del x
