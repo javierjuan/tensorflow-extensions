@@ -1,11 +1,10 @@
-import math
-
 import numpy as np
 import tensorflow as tf
 from scipy.optimize import linear_sum_assignment as _linear_sum_assignment
 
 
 @tf.numpy_function(Tout=tf.bool)
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 def linear_sum_assignment(cost_matrix):
     rows, cols = _linear_sum_assignment(cost_matrix)
     assignment = np.zeros_like(cost_matrix, dtype=bool)
@@ -13,79 +12,120 @@ def linear_sum_assignment(cost_matrix):
     return assignment
 
 
-def compute_ciou(boxes1, boxes2):
-    y_min1, x_min1, y_max1, x_max1 = tf.split(boxes1[..., :4], 4, axis=-1)
-    y_min2, x_min2, y_max2, x_max2 = tf.split(boxes2[..., :4], 4, axis=-1)
+@tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+def _permutation_indices(tensor):
+    return tf.constant([1, 0]) if tf.rank(tensor) == 2 else tf.constant([0, 2, 1])
 
-    boxes2_rank = len(boxes2.shape)
-    perm = [1, 0] if boxes2_rank == 2 else [0, 2, 1]
 
+@tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+def _compute_valid(bounding_box):
+    y_min, x_min, y_max, x_max = tf.split(bounding_box[..., :4], 4, axis=-1)
+    valid = tf.math.logical_and(tf.math.greater_equal(y_max, y_min), tf.math.greater_equal(x_max, x_min))
+    return tf.cast(valid, dtype=bounding_box.dtype)
+
+
+@tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+def _compute_area(bounding_box):
+    y_min, x_min, y_max, x_max = tf.split(bounding_box[..., :4], 4, axis=-1)
+    area = (y_max - y_min) * (x_max - x_min)
+    return tf.math.maximum(tf.cast(0, bounding_box.dtype), area)
+
+
+@tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+def _compute_intersection(bounding_box_1, bounding_box_2):
+    y_min1, x_min1, y_max1, x_max1 = tf.split(bounding_box_1[..., :4], 4, axis=-1)
+    y_min2, x_min2, y_max2, x_max2 = tf.split(bounding_box_2[..., :4], 4, axis=-1)
+    perm = _permutation_indices(bounding_box_2)
     intersect_ymax = tf.math.minimum(y_max1, tf.transpose(y_max2, perm))
     intersect_ymin = tf.math.maximum(y_min1, tf.transpose(y_min2, perm))
     intersect_xmax = tf.math.minimum(x_max1, tf.transpose(x_max2, perm))
     intersect_xmin = tf.math.maximum(x_min1, tf.transpose(x_min2, perm))
-
-    intersect_height = intersect_ymax - intersect_ymin
-    intersect_width = intersect_xmax - intersect_xmin
-    zero = tf.cast(0, intersect_height.dtype)
-    intersect_height = tf.math.maximum(zero, intersect_height)
-    intersect_width = tf.math.maximum(zero, intersect_width)
-    intersect_area = intersect_height * intersect_width
-
-    boxes1_area = tf.squeeze((y_max1 - y_min1) * (x_max1 - x_min1), axis=-1)
-    boxes2_area = tf.squeeze((y_max2 - y_min2) * (x_max2 - x_min2), axis=-1)
-    boxes2_area_rank = len(boxes2_area.shape)
-    boxes2_axis = 1 if (boxes2_area_rank == 2) else 0
-    boxes1_area = tf.expand_dims(boxes1_area, axis=-1)
-    boxes2_area = tf.expand_dims(boxes2_area, axis=boxes2_axis)
-    union_area = boxes1_area + boxes2_area - intersect_area
-    iou = tf.math.divide(intersect_area, union_area + tf.keras.backend.epsilon())
-    iou = tf.clip_by_value(iou, clip_value_min=0.0, clip_value_max=1.0)
-
-    convex_width = (tf.math.maximum(x_max1, tf.transpose(x_max2, perm)) -
-                    tf.math.minimum(x_min1, tf.transpose(x_min2, perm)))
-    convex_height = (tf.math.maximum(y_max1, tf.transpose(y_max2, perm)) -
-                     tf.math.minimum(y_min1, tf.transpose(y_min2, perm)))
-    convex_diagonal_squared = convex_width ** 2 + convex_height ** 2 + tf.keras.backend.epsilon()
-    centers_distance_squared = (((x_min1 + x_max1) / 2 - tf.transpose((x_min2 + x_max2) / 2, perm)) ** 2 +
-                                ((y_min1 + y_max1) / 2 - tf.transpose((y_min2 + y_max2) / 2, perm)) ** 2)
-
-    width_1 = x_max1 - x_min1
-    height_1 = y_max1 - y_min1 + tf.keras.backend.epsilon()
-    width_2 = x_max2 - x_min2
-    height_2 = y_max2 - y_min2 + tf.keras.backend.epsilon()
-
-    v = tf.math.pow((4 / math.pi ** 2) * (tf.transpose(tf.math.atan(width_2 / height_2), perm) -
-                                          tf.math.atan(width_1 / height_1)), 2)
-    alpha = v / (v - iou + (1 + tf.keras.backend.epsilon()))
-
-    return iou - (centers_distance_squared / convex_diagonal_squared + v * alpha)
+    zero = tf.cast(0, bounding_box_1.dtype)
+    intersect_height = tf.math.maximum(zero, intersect_ymax - intersect_ymin)
+    intersect_width = tf.math.maximum(zero, intersect_xmax - intersect_xmin)
+    return intersect_height * intersect_width
 
 
+@tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+def _compute_convex_hull(bounding_box_1, bounding_box_2):
+    y_min1, x_min1, y_max1, x_max1 = tf.split(bounding_box_1[..., :4], 4, axis=-1)
+    y_min2, x_min2, y_max2, x_max2 = tf.split(bounding_box_2[..., :4], 4, axis=-1)
+    perm = _permutation_indices(bounding_box_2)
+    convex_hull_ymin = tf.math.minimum(y_min1, tf.transpose(y_min2, perm))
+    convex_hull_xmin = tf.math.minimum(x_min1, tf.transpose(x_min2, perm))
+    convex_hull_ymax = tf.math.maximum(y_max1, tf.transpose(y_max2, perm))
+    convex_hull_xmax = tf.math.maximum(x_max1, tf.transpose(x_max2, perm))
+    zero = tf.cast(0, bounding_box_1.dtype)
+    convex_hull_height = tf.math.maximum(zero, convex_hull_ymax - convex_hull_ymin)
+    convex_hull_width = tf.math.maximum(zero, convex_hull_xmax - convex_hull_xmin)
+    return convex_hull_height * convex_hull_width
+
+
+# @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+def compute_giou(bounding_box_1, bounding_box_2, mode='giou'):
+    # Compute valid masks
+    valid1 = _compute_valid(bounding_box_1)
+    valid2 = _compute_valid(bounding_box_2)
+    # Compute areas
+    bounding_box_1_area = _compute_area(bounding_box_1) * valid1
+    bounding_box_2_area = _compute_area(bounding_box_2) * valid2
+    # Compute valid matrix
+    perm = _permutation_indices(bounding_box_2_area)
+    valid = tf.cast(tf.math.multiply(valid1, tf.transpose(valid2, perm)), bounding_box_1.dtype)
+    # Compute iou
+    intersect_area = _compute_intersection(bounding_box_1, bounding_box_2) * valid
+    union_area = (bounding_box_1_area + tf.transpose(bounding_box_2_area, perm)) - intersect_area
+    iou = tf.math.divide_no_nan(intersect_area, union_area)
+    if mode == 'iou':
+        return iou
+    convex_hull_area = _compute_convex_hull(bounding_box_1, bounding_box_2) * valid
+    giou = iou - tf.math.divide_no_nan(convex_hull_area - union_area, convex_hull_area)
+    return giou
+
+
+# @tf.function
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 def compute_matching(y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box, label_weight=1.0,
-                     bounding_box_weight=1.0, padding_axis=-1):
-    non_padding_mask = 1.0 - tf.expand_dims(y_true_label[..., padding_axis], axis=-1)
-    label_scores = (1.0 - tf.matmul(y_true_label, y_pred_label, transpose_b=True)) * non_padding_mask
-    bounding_box_scores = (1.0 - compute_ciou(y_true_bounding_box, y_pred_bounding_box)) * non_padding_mask
+                     bounding_box_weight=1.0, mode='giou'):
+    label_scores = 1.0 - tf.linalg.matmul(y_true_label, y_pred_label, transpose_b=True, a_is_sparse=True)
+    bounding_box_scores = 1.0 - compute_giou(y_true_bounding_box, y_pred_bounding_box, mode)
     cost_matrix = label_weight * label_scores + bounding_box_weight * bounding_box_scores
     return linear_sum_assignment(cost_matrix)
 
 
-class HungarianMatcher(tf.Module):
+@tf.keras.saving.register_keras_serializable(package='tfe.matchers')
+class Hungarian(tf.Module):
     def __init__(self,
                  label_weight=1.0,
                  bounding_box_weight=1.0,
-                 padding_axis=-1,
+                 mode='giou',
                  name=None):
         super().__init__(name=name)
         self.label_weight = label_weight
         self.bounding_box_weight = bounding_box_weight
-        self.padding_axis = padding_axis
+        self.mode = mode
 
-    def __call__(self, y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box):
+    def __call__(self, y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box, padding_axis=None):
         with self.name_scope:
             return tf.stop_gradient(
                 compute_matching(y_true_label=y_true_label, y_true_bounding_box=y_true_bounding_box,
                                  y_pred_label=y_pred_label, y_pred_bounding_box=y_pred_bounding_box,
                                  label_weight=self.label_weight, bounding_box_weight=self.bounding_box_weight,
-                                 padding_axis=self.padding_axis))
+                                 mode=self.mode))
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+    def get_config(self):
+        return {
+            'label_weight': self.label_weight,
+            'bounding_box_weight': self.bounding_box_weight,
+            'mode': self.mode
+        }
