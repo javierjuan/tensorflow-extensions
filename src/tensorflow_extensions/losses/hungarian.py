@@ -1,51 +1,61 @@
 import tensorflow as tf
 
-from ..matchers import HungarianMatcher
-from ..matchers.hungarian import compute_ciou
+from ..matchers import utils, Hungarian as HungarianMatcher
+from ..matchers.hungarian import compute_giou
 
 
-def compute_label_loss(y_true, y_pred, assignment, padding_mask, padding_weight=0.1):
-    y_true_indices, y_pred_indices = tf.unstack(tf.where(assignment), num=2, axis=-1)
-    loss = tf.keras.losses.categorical_crossentropy(y_true=tf.gather(y_true, y_true_indices),
-                                                    y_pred=tf.gather(y_pred, y_pred_indices),
-                                                    from_logits=False, label_smoothing=0)
-    loss *= ((1.0 - padding_mask) + (padding_mask * padding_weight))
-    return tf.math.reduce_sum(loss)
-
-
-def compute_bounding_box_loss(y_true, y_pred, assignment, padding_mask):
-    y_true_indices, y_pred_indices = tf.unstack(tf.where(assignment), num=2, axis=-1)
-    scores = compute_ciou(boxes1=tf.gather(y_true, y_true_indices), boxes2=tf.gather(y_pred, y_pred_indices))
-    loss = 1.0 - tf.linalg.tensor_diag_part(scores)
-    loss *= (1.0 - padding_mask)
-    return tf.math.reduce_sum(loss)
-
-
+@tf.keras.saving.register_keras_serializable(package='tfe.losses')
 class Hungarian(tf.keras.losses.Loss):
-    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1,
+    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1, mode='giou',
                  reduction=tf.keras.losses.Reduction.AUTO, name='hungarian'):
         super().__init__(name=name, reduction=reduction)
-        self.matcher = HungarianMatcher(label_weight=label_weight, bounding_box_weight=bounding_box_weight,
-                                        padding_axis=padding_axis)
-        self.padding_axis = padding_axis
         self.label_weight = label_weight
         self.bounding_box_weight = bounding_box_weight
+        self.padding_axis = padding_axis
+        self.mode = mode
+        self.matcher = HungarianMatcher(mode=mode)
+
+    @staticmethod
+    def compute_label_loss(y_true, y_pred, focal=True, label_smoothing=0.0):
+        if focal:
+            loss = tf.keras.losses.categorical_focal_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False,
+                                                                  label_smoothing=label_smoothing)
+        else:
+            loss = tf.keras.losses.categorical_crossentropy(y_true=y_true, y_pred=y_pred, from_logits=False,
+                                                            label_smoothing=label_smoothing)
+        return tf.math.reduce_mean(loss)
+
+    @staticmethod
+    def compute_bounding_box_loss(y_true, y_pred, mode='giou'):
+        scores = compute_giou(bounding_box_1=y_true, bounding_box_2=y_pred, mode=mode)
+        loss = 1.0 - tf.linalg.tensor_diag_part(scores)
+        return tf.math.reduce_mean(loss)
 
     def call(self, y_true, y_pred):
         zip_args = (tf.unstack(y_true['label']), tf.unstack(y_true['bounding_box']),
                     tf.unstack(y_pred['label']), tf.unstack(y_pred['bounding_box']))
         batch_loss = []
         for y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box in zip(*zip_args):
-            # Compute Hungarian matching
-            assignment = self.matcher(y_true_label=y_true_label, y_true_bounding_box=y_true_bounding_box,
-                                      y_pred_label=y_pred_label, y_pred_bounding_box=y_pred_bounding_box)
-            # Compute loss based on Hungarian matching
-            padding_mask = y_true_label[..., self.padding_axis]
-            label_loss = compute_label_loss(y_true=y_true_label, y_pred=y_pred_label, assignment=assignment,
-                                            padding_mask=padding_mask, padding_weight=0.1)
-            bounding_box_loss = compute_bounding_box_loss(y_true=y_true_bounding_box, y_pred=y_pred_bounding_box,
-                                                          assignment=assignment, padding_mask=padding_mask)
-            loss = label_loss + bounding_box_loss
+            # Compute non-padding mask
+            mask = utils.non_padding_mask(label=y_true_label, padding_axis=self.padding_axis)
+            if tf.math.reduce_any(mask):
+                # Compute non-padded labels and bounding boxes
+                o_true_label = utils.gather_by_mask(y_true_label, mask=mask)
+                o_true_bounding_box = utils.gather_by_mask(y_true_bounding_box, mask=mask)
+                # Compute Hungarian matching
+                assignment = self.matcher(y_true_label=o_true_label, y_true_bounding_box=o_true_bounding_box,
+                                          y_pred_label=y_pred_label, y_pred_bounding_box=y_pred_bounding_box)
+                # Compute label loss based on Hungarian matching
+                y_true_label = utils.index_by_assignment(y_true_label, assignment=assignment)
+                label_loss = self.compute_label_loss(y_true=y_true_label, y_pred=y_pred_label)
+                # Compute bounding box loss based on Hungarian matching
+                o_pred_bounding_box = utils.gather_by_assignment(y_pred_bounding_box, assignment=assignment)
+                bounding_box_loss = self.compute_bounding_box_loss(y_true=o_true_bounding_box,
+                                                                   y_pred=o_pred_bounding_box, mode=self.mode)
+                # Compute general loss
+                loss = self.label_weight * label_loss + self.bounding_box_weight * bounding_box_loss
+            else:
+                loss = self.compute_label_loss(y_true=y_true_label, y_pred=y_pred_label)
             batch_loss.append(loss)
         return tf.convert_to_tensor(batch_loss, dtype=tf.float32)
 
@@ -54,5 +64,7 @@ class Hungarian(tf.keras.losses.Loss):
         config.update({
             'label_weight': self.label_weight,
             'bounding_box_weight': self.bounding_box_weight,
+            'padding_axis': self.padding_axis,
+            'mode': self.mode
         })
         return config
