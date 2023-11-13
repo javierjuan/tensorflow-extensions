@@ -6,7 +6,7 @@ from ..matchers.hungarian import compute_giou
 
 @tf.keras.saving.register_keras_serializable(package='tfe.metrics')
 class Hungarian(tf.keras.metrics.Metric):
-    def __init__(self, padding_axis=-1, mode='giou', name=None, **kwargs):
+    def __init__(self, padding_axis=-1, mode='giou', name='hungarian', **kwargs):
         super().__init__(name=name, **kwargs)
         self.padding_axis = padding_axis
         self.mode = mode

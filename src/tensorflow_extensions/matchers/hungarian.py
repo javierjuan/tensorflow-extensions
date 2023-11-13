@@ -100,9 +100,7 @@ def compute_matching(y_true_label, y_true_bounding_box, y_pred_label, y_pred_bou
 
 @tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 class Hungarian(tf.Module):
-    def __init__(self,
-                 mode='giou',
-                 name=None):
+    def __init__(self, mode='giou', name='hungarian'):
         super().__init__(name=name)
         self.mode = mode
 
