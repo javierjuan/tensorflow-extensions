@@ -1,5 +1,3 @@
-from collections.abc import Sequence
-
 import tensorflow as tf
 
 

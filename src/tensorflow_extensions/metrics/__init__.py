@@ -1,3 +1,3 @@
 from .dice import Dice
-from .jaccard import Jaccard
 from .hungarian import Hungarian
+from .jaccard import Jaccard

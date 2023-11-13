@@ -1,2 +1,2 @@
-from .hungarian import Hungarian
 from . import utils
+from .hungarian import Hungarian

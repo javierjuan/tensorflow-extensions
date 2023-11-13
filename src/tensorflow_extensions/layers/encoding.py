@@ -1,8 +1,8 @@
 import tensorflow as tf
 
-from .patch import PatchExtractor2D
 from .embedding import FixedEmbedding
 from .math import CartesianConcatenation2D
+from .patch import PatchExtractor2D
 
 
 @tf.keras.saving.register_keras_serializable(package='tfe.layers')

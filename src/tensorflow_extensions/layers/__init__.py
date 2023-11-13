@@ -5,9 +5,9 @@ from .embedding import *
 from .encoding import *
 from .inception import *
 from .math import *
+from .mlp import *
 from .non_local import *
 from .patch import *
 from .pooling import *
 from .residual import *
 from .transformer import *
-from .mlp import *
