@@ -15,7 +15,7 @@ class Hungarian(tf.keras.losses.Loss):
         self.focal = focal
         self.generalized = generalized
         self.norm = norm
-        self.matcher = HungarianMatcher(generalized=generalized, norm=norm)
+        self.matcher = HungarianMatcher(generalized=generalized, norm=norm, name='hungarian_matcher')
 
     @staticmethod
     def compute_label_loss(y_true, y_pred, focal=True, label_smoothing=0.0):
