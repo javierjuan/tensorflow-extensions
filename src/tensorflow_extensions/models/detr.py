@@ -4,16 +4,28 @@ from ..layers.embedding import FixedEmbedding
 from ..layers.encoding import PositionalEmbedding2D
 from ..layers.mlp import MultiLayerPerceptron
 from ..layers.transformer import Transformer
-from ..metrics import Hungarian
+from ..losses import Hungarian as HungarianLoss
+from ..metrics import Hungarian as HungarianMetric
 from ..models.model import Model
 
 
 @tf.keras.saving.register_keras_serializable(package='tfe.models')
 class DETRModel(Model):
-    def __init__(self, padding_axis=-1, name=None, **kwargs):
+    def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
         self.loss_tracker = tf.keras.metrics.Mean(name='loss')
-        self.metric = Hungarian(padding_axis=padding_axis)
+        self.custom_metrics = []
+
+    def build(self, input_shape):
+        super().build(input_shape=input_shape)
+        # Check Hungarian Loss
+        if not isinstance(self.loss, HungarianLoss):
+            raise TypeError(f'`Hungarian` loss must be used to train this model')
+        # Hack for Hungarian metric
+        for i, metric in enumerate(list(self.compiled_metrics._metrics)):
+            if isinstance(metric, HungarianMetric):
+                self.custom_metrics.append(self.compiled_metrics._metrics.pop(i))
+        self._metrics.extend(self.custom_metrics)
 
     def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None):
         del x
@@ -24,7 +36,8 @@ class DETRModel(Model):
         return loss
 
     def compute_metrics(self, x, y, y_pred, sample_weight):
-        self.metric.update_state(y_true=y, y_pred=y_pred)
+        for metric in self.custom_metrics:
+            metric.update_state(y_true=y, y_pred=y_pred)
         return super().compute_metrics(x=x, y=y, y_pred=y_pred, sample_weight=sample_weight)
 
 
@@ -142,10 +155,9 @@ class DETR(DETRModel):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.label = MultiLayerPerceptron(
-            units=[128, num_labels + 1], activation=['mish', 'softmax'], use_bias=use_bias,
-            normalization=['layer', None], kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
-            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+        self.label = tf.keras.layers.Dense(
+            units=num_labels + 1, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
         self.bounding_box = MultiLayerPerceptron(
