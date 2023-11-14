@@ -1,19 +1,21 @@
 import tensorflow as tf
 
 from ..matchers import utils, Hungarian as HungarianMatcher
-from ..matchers.hungarian import compute_giou
+from ..matchers.hungarian import compute_iou, compute_distance
 
 
 @tf.keras.saving.register_keras_serializable(package='tfe.losses')
 class Hungarian(tf.keras.losses.Loss):
-    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1, mode='giou',
+    def __init__(self, label_weight=1.0, bounding_box_weight=1.0, padding_axis=-1, focal=True, generalized=True, norm=1,
                  reduction=tf.keras.losses.Reduction.AUTO, name='hungarian'):
         super().__init__(name=name, reduction=reduction)
         self.label_weight = label_weight
         self.bounding_box_weight = bounding_box_weight
         self.padding_axis = padding_axis
-        self.mode = mode
-        self.matcher = HungarianMatcher(mode=mode)
+        self.focal = focal
+        self.generalized = generalized
+        self.norm = norm
+        self.matcher = HungarianMatcher(generalized=generalized, norm=norm)
 
     @staticmethod
     def compute_label_loss(y_true, y_pred, focal=True, label_smoothing=0.0):
@@ -26,9 +28,10 @@ class Hungarian(tf.keras.losses.Loss):
         return tf.math.reduce_mean(loss)
 
     @staticmethod
-    def compute_bounding_box_loss(y_true, y_pred, mode='giou'):
-        scores = compute_giou(bounding_box_1=y_true, bounding_box_2=y_pred, mode=mode)
-        loss = 1.0 - tf.linalg.tensor_diag_part(scores)
+    def compute_bounding_box_loss(y_true, y_pred, generalized=True, norm=1):
+        iou = 1.0 - compute_iou(bounding_box_1=y_true, bounding_box_2=y_pred, generalized=generalized)
+        distance = compute_distance(bounding_box_1=y_true, bounding_box_2=y_pred, norm=norm)
+        loss = tf.linalg.tensor_diag_part(iou + distance)
         return tf.math.reduce_mean(loss)
 
     def call(self, y_true, y_pred):
@@ -47,11 +50,12 @@ class Hungarian(tf.keras.losses.Loss):
                                           y_pred_label=y_pred_label, y_pred_bounding_box=y_pred_bounding_box)
                 # Compute label loss based on Hungarian matching
                 y_true_label = utils.index_by_assignment(y_true_label, assignment=assignment)
-                label_loss = self.compute_label_loss(y_true=y_true_label, y_pred=y_pred_label)
+                label_loss = self.compute_label_loss(y_true=y_true_label, y_pred=y_pred_label, focal=self.focal)
                 # Compute bounding box loss based on Hungarian matching
                 o_pred_bounding_box = utils.gather_by_assignment(y_pred_bounding_box, assignment=assignment)
                 bounding_box_loss = self.compute_bounding_box_loss(y_true=o_true_bounding_box,
-                                                                   y_pred=o_pred_bounding_box, mode=self.mode)
+                                                                   y_pred=o_pred_bounding_box,
+                                                                   generalized=self.generalized, norm=self.norm)
                 # Compute general loss
                 loss = self.label_weight * label_loss + self.bounding_box_weight * bounding_box_loss
             else:
@@ -65,6 +69,6 @@ class Hungarian(tf.keras.losses.Loss):
             'label_weight': self.label_weight,
             'bounding_box_weight': self.bounding_box_weight,
             'padding_axis': self.padding_axis,
-            'mode': self.mode
+            'generalized': self.generalized
         })
         return config
