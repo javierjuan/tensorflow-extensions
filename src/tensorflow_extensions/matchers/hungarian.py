@@ -84,6 +84,7 @@ def compute_iou(bounding_box_1, bounding_box_2, generalized=True):
     if generalized:
         convex_hull_area = _compute_convex_hull(bounding_box_1, bounding_box_2) * valid
         iou -= tf.math.divide_no_nan(convex_hull_area - union_area, convex_hull_area)
+        iou += valid - 1.0
     return iou
 
 
