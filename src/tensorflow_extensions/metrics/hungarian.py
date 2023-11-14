@@ -12,7 +12,7 @@ class Hungarian(tf.keras.metrics.Metric):
         self.generalized = generalized
         self.norm = norm
 
-        self.matcher = HungarianMatcher(generalized=generalized, norm=norm)
+        self.matcher = HungarianMatcher(generalized=generalized, norm=norm, name='hungarian_matcher')
         self.iou = self.add_weight(name='iou', initializer='zeros')
         self.accuracy = self.add_weight(name='accuracy', initializer='zeros')
         self.objects = self.add_weight(name='objects', initializer='zeros')
@@ -32,7 +32,7 @@ class Hungarian(tf.keras.metrics.Metric):
                     tf.unstack(y_pred['label']), tf.unstack(y_pred['bounding_box']))
         accuracy, iou, objects = [], [], []
         for y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box in zip(*zip_args):
-            # Compute non-padded mask
+            # Compute non-padding mask
             mask = utils.non_padding_mask(label=y_true_label, padding_axis=self.padding_axis)
             if tf.math.reduce_any(mask):
                 # Compute non-padded labels and bounding boxes

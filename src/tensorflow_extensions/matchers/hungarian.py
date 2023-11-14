@@ -22,8 +22,7 @@ def _permutation_indices(tensor):
 @tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 def _compute_valid(bounding_box):
     y_min, x_min, y_max, x_max = tf.split(bounding_box[..., :4], 4, axis=-1)
-    valid = tf.math.logical_and(tf.math.greater_equal(y_max, y_min), tf.math.greater_equal(x_max, x_min))
-    return tf.cast(valid, bounding_box.dtype)
+    return tf.math.logical_and(tf.math.greater(y_max, y_min), tf.math.greater(x_max, x_min))
 
 
 @tf.function(reduce_retracing=True)
@@ -70,8 +69,8 @@ def _compute_convex_hull(bounding_box_1, bounding_box_2):
 @tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 def compute_iou(bounding_box_1, bounding_box_2, generalized=True):
     # Compute valid masks
-    valid1 = _compute_valid(bounding_box_1)
-    valid2 = _compute_valid(bounding_box_2)
+    valid1 = tf.cast(_compute_valid(bounding_box_1), bounding_box_1.dtype)
+    valid2 = tf.cast(_compute_valid(bounding_box_2), bounding_box_2.dtype)
     # Compute areas
     bounding_box_1_area = _compute_area(bounding_box_1) * valid1
     bounding_box_2_area = _compute_area(bounding_box_2) * valid2
@@ -92,8 +91,8 @@ def compute_iou(bounding_box_1, bounding_box_2, generalized=True):
 @tf.keras.saving.register_keras_serializable(package='tfe.matchers')
 def compute_distance(bounding_box_1, bounding_box_2, norm=1):
     # Compute valid masks
-    valid1 = _compute_valid(bounding_box_1)
-    valid2 = _compute_valid(bounding_box_2)
+    valid1 = tf.cast(_compute_valid(bounding_box_1), bounding_box_1.dtype)
+    valid2 = tf.cast(_compute_valid(bounding_box_2), bounding_box_2.dtype)
     perm = _permutation_indices(bounding_box_2)
     valid = tf.math.multiply(valid1, tf.transpose(valid2, perm))
     # Compute distance
