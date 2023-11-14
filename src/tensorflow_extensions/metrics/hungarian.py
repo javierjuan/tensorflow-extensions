@@ -1,18 +1,19 @@
 import tensorflow as tf
 
 from ..matchers import utils, Hungarian as HungarianMatcher
-from ..matchers.hungarian import compute_giou
+from ..matchers.hungarian import compute_iou
 
 
 @tf.keras.saving.register_keras_serializable(package='tfe.metrics')
 class Hungarian(tf.keras.metrics.Metric):
-    def __init__(self, padding_axis=-1, mode='giou', name='hungarian', **kwargs):
+    def __init__(self, padding_axis=-1, generalized=True, norm=1, name='hungarian', **kwargs):
         super().__init__(name=name, **kwargs)
         self.padding_axis = padding_axis
-        self.mode = mode
+        self.generalized = generalized
+        self.norm = norm
 
-        self.matcher = HungarianMatcher(mode=mode)
-        self.giou = self.add_weight(name='giou', initializer='zeros')
+        self.matcher = HungarianMatcher(generalized=generalized, norm=norm)
+        self.iou = self.add_weight(name='iou', initializer='zeros')
         self.accuracy = self.add_weight(name='accuracy', initializer='zeros')
         self.objects = self.add_weight(name='objects', initializer='zeros')
 
@@ -21,15 +22,15 @@ class Hungarian(tf.keras.metrics.Metric):
         return tf.math.reduce_sum(tf.keras.metrics.categorical_accuracy(y_true=y_true, y_pred=y_pred))
 
     @staticmethod
-    def compute_bounding_box_metric(y_true, y_pred, mode='giou'):
-        scores = compute_giou(bounding_box_1=y_true, bounding_box_2=y_pred, mode=mode)
+    def compute_bounding_box_metric(y_true, y_pred, generalized=True):
+        scores = compute_iou(bounding_box_1=y_true, bounding_box_2=y_pred, generalized=generalized)
         scores = tf.linalg.tensor_diag_part(scores)
         return tf.math.reduce_sum(scores)
 
     def update_state(self, y_true, y_pred):
         zip_args = (tf.unstack(y_true['label']), tf.unstack(y_true['bounding_box']),
                     tf.unstack(y_pred['label']), tf.unstack(y_pred['bounding_box']))
-        accuracy, ciou, objects = [], [], []
+        accuracy, iou, objects = [], [], []
         for y_true_label, y_true_bounding_box, y_pred_label, y_pred_bounding_box in zip(*zip_args):
             # Compute non-padded mask
             mask = utils.non_padding_mask(label=y_true_label, padding_axis=self.padding_axis)
@@ -46,19 +47,20 @@ class Hungarian(tf.keras.metrics.Metric):
                 # Compute bounding box metric based on Hungarian matching
                 o_pred_bounding_box = utils.gather_by_assignment(y_pred_bounding_box, assignment=assignment)
                 bounding_box_metric = self.compute_bounding_box_metric(y_true=o_true_bounding_box,
-                                                                       y_pred=o_pred_bounding_box, mode=self.mode)
+                                                                       y_pred=o_pred_bounding_box,
+                                                                       generalized=self.generalized)
             else:
                 label_metric = tf.constant(value=0.0, dtype=tf.float32)
                 bounding_box_metric = tf.constant(value=0.0, dtype=tf.float32)
             accuracy.append(label_metric)
-            ciou.append(bounding_box_metric)
+            iou.append(bounding_box_metric)
             objects.append(tf.math.reduce_sum(tf.cast(mask, dtype=tf.float32)))
         self.accuracy.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(accuracy)))
-        self.giou.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(ciou)))
+        self.iou.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(iou)))
         self.objects.assign_add(tf.math.reduce_sum(tf.convert_to_tensor(objects)))
 
     def result(self):
-        return {'giou': tf.math.divide_no_nan(self.giou, self.objects),
+        return {'iou': tf.math.divide_no_nan(self.iou, self.objects),
                 'accuracy': tf.math.divide_no_nan(self.accuracy, self.objects)}
 
     def reset_state(self):
@@ -69,6 +71,7 @@ class Hungarian(tf.keras.metrics.Metric):
         config = super().get_config()
         config.update({
             'padding_axis': self.padding_axis,
-            'mode': self.mode
+            'generalized': self.generalized,
+            'norm': self.norm
         })
         return config
