@@ -175,9 +175,8 @@ class DETR(DETRModel):
         if not isinstance(self.backbone, tf.keras.Model):
             raise TypeError('`backbone` must be an instance of Keras Model')
 
-        if not self.train_backbone:
-            for layer in self.backbone.layers:
-                layer.trainable = False
+        for layer in self.backbone.layers:
+            layer.trainable = self.train_backbone
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=None, mask=None):
