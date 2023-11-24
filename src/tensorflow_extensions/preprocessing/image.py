@@ -1,7 +1,7 @@
-import tensorflow as tf
+import keras_core as keras
 
 
-class Standard2D(tf.keras.layers.Layer):
+class Standard2D(keras.layers.Layer):
     def __init__(self,
                  height,
                  width,
@@ -23,12 +23,12 @@ class Standard2D(tf.keras.layers.Layer):
         self.interpolation = interpolation
         self.axis = axis
 
-        self.resizing = tf.keras.layers.Resizing(
+        self.resizing = keras.layers.Resizing(
             height=height, width=width, interpolation=interpolation, crop_to_aspect_ratio=crop_to_aspect_ratio)
-        self.normalization = tf.keras.layers.Normalization(axis=axis, mean=mean, variance=variance, invert=invert)
+        self.normalization = keras.layers.Normalization(axis=axis, mean=mean, variance=variance, invert=invert)
 
-    def adapt(self, data, batch_size=None, steps=None):
-        self.normalization.adapt(data=data, batch_size=batch_size, steps=steps)
+    def adapt(self, data):
+        self.normalization.adapt(data=data)
 
     def call(self, inputs, **kwargs):
         x = self.resizing(inputs)

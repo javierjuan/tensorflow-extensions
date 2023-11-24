@@ -1,11 +1,11 @@
-import tensorflow as tf
+import keras_core as keras
 
 from .model import Model
 from ..layers.encoding import TokenAndPositionEncoding, TokenAndPositionEmbedding
 from ..layers.transformer import Transformer
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.models')
+@keras.saving.register_keras_serializable(package='tfe.models')
 class Seq2SeqTransformer(Model):
     def __init__(self,
                  input_vocabulary_size,
@@ -88,12 +88,12 @@ class Seq2SeqTransformer(Model):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.posteriors = tf.keras.layers.Dense(
+        self.posteriors = keras.layers.Dense(
             units=output_vocabulary_size, activation='softmax', use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint, dtype=tf.float32)
+            bias_constraint=bias_constraint, dtype='float32')
 
     def call(self, inputs, training=False, **kwargs):
         inputs, outputs = inputs

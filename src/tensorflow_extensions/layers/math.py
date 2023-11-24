@@ -1,8 +1,9 @@
-import tensorflow as tf
+import keras_core as keras
+from keras_core import ops
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class ExpandDimensions(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class ExpandDimensions(keras.layers.Layer):
     def __init__(self,
                  axis=-1,
                  name=None,
@@ -11,7 +12,7 @@ class ExpandDimensions(tf.keras.layers.Layer):
         self.axis = axis
 
     def call(self, inputs, **kwargs):
-        return tf.expand_dims(inputs, axis=self.axis)
+        return ops.expand_dims(inputs, axis=self.axis)
 
     def get_config(self):
         config = super().get_config()
@@ -21,33 +22,31 @@ class ExpandDimensions(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class Replicate(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class Repeat(keras.layers.Layer):
     def __init__(self,
-                 times,
+                 repeats,
                  axis,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.times = times
+        self.repeats = repeats
         self.axis = axis
 
     def call(self, inputs, **kwargs):
-        x = tf.expand_dims(inputs, axis=self.axis)
-        multiples = tf.one_hot(indices=self.axis, depth=tf.rank(x), on_value=self.times, off_value=1, dtype=tf.int32)
-        return tf.tile(x, multiples=multiples)
+        return ops.repeat(ops.expand_dims(inputs, axis=self.axis), repeats=self.repeats, axis=self.axis)
 
     def get_config(self):
         config = super().get_config()
         config.update({
-            'times': self.times,
+            'repeats': self.repeats,
             'axis': self.axis
         })
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class CartesianConcatenation2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class CartesianConcatenation2D(keras.layers.Layer):
     def __init__(self,
                  name=None,
                  axis=-1,
@@ -57,10 +56,10 @@ class CartesianConcatenation2D(tf.keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         x, y = inputs
-        x_shape, y_shape = tf.shape(x), tf.shape(y)
-        tile_x = tf.tile(tf.expand_dims(x, axis=2), multiples=[1, 1, y_shape[1], 1])
-        tile_y = tf.tile(tf.expand_dims(y, axis=1), multiples=[1, x_shape[1], 1, 1])
-        return tf.concat([tile_x, tile_y], axis=self.axis)
+        x_shape, y_shape = ops.shape(x), ops.shape(y)
+        tile_x = ops.tile(ops.expand_dims(x, axis=2), repeats=[1, 1, y_shape[1], 1])
+        tile_y = ops.tile(ops.expand_dims(y, axis=1), repeats=[1, x_shape[1], 1, 1])
+        return ops.concatenate([tile_x, tile_y], axis=self.axis)
 
     def get_config(self):
         config = super().get_config()
@@ -70,44 +69,40 @@ class CartesianConcatenation2D(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class MathReduce(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class MathReduce(keras.layers.Layer):
     def __init__(self,
                  reduce_mode,
                  axis=-1,
+                 keepdims=False,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.reduce_mode = reduce_mode
         self.axis = axis
+        self.keepdims = keepdims
 
         if reduce_mode == 'min':
-            self.reduce_operation = tf.math.reduce_min
+            self.reduce_operation = ops.min
         elif reduce_mode == 'max':
-            self.reduce_operation = tf.math.reduce_max
+            self.reduce_operation = ops.max
         elif reduce_mode == 'mean':
-            self.reduce_operation = tf.math.reduce_mean
+            self.reduce_operation = ops.mean
         elif reduce_mode == 'sum':
-            self.reduce_operation = tf.math.reduce_sum
+            self.reduce_operation = ops.sum
         elif reduce_mode == 'prod':
-            self.reduce_operation = tf.math.reduce_prod
+            self.reduce_operation = ops.prod
         else:
             raise ValueError(f'Unexpected operation {reduce_mode}')
 
     def call(self, inputs, **kwargs):
-        return self.reduce_operation(inputs, axis=self.axis)
+        return self.reduce_operation(inputs, axis=self.axis, keepdims=self.keepdims)
 
     def get_config(self):
         config = super().get_config()
         config.update({
             'reduce_mode': self.reduce_mode,
-            'axis': self.axis
+            'axis': self.axis,
+            'keepdims': self.keepdims
         })
         return config
-
-
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class MatrixMultiplication(tf.keras.layers.Layer):
-    def call(self, a, b, transpose_a=False, transpose_b=False, adjoint_a=False, adjoint_b=False, **kwargs):
-        return tf.linalg.matmul(a, b, transpose_a=transpose_a, transpose_b=transpose_b, adjoint_a=adjoint_a,
-                                adjoint_b=adjoint_b)

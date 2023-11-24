@@ -1,8 +1,8 @@
-import tensorflow as tf
+import keras_core as keras
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TransformerAttention(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TransformerAttention(keras.layers.Layer):
     def __init__(self,
                  num_heads,
                  dropout=0.0,
@@ -55,15 +55,15 @@ class TransformerAttention(tf.keras.layers.Layer):
         self.supports_masking = True
 
         self.attention = None
-        self.normalization = tf.keras.layers.LayerNormalization(
+        self.normalization = keras.layers.LayerNormalization(
             axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
             gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
             beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.add = tf.keras.layers.Add()
+        self.add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1]
-        self.attention = tf.keras.layers.MultiHeadAttention(
+        self.attention = keras.layers.MultiHeadAttention(
             num_heads=self.num_heads, key_dim=embedding_dimension // self.num_heads, value_dim=None,
             dropout=self.dropout, use_bias=self.use_bias, output_shape=self._output_shape,
             attention_axes=self.attention_axes, kernel_initializer=self.kernel_initializer,
@@ -112,8 +112,8 @@ class TransformerAttention(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TransformerFeedForward(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TransformerFeedForward(keras.layers.Layer):
     def __init__(self,
                  units,
                  activation='mish',
@@ -164,22 +164,22 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.dense_input = tf.keras.layers.Dense(
+        self.dense_input = keras.layers.Dense(
             units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
         self.dense_output = None
-        self.normalization = tf.keras.layers.LayerNormalization(
+        self.normalization = keras.layers.LayerNormalization(
             axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
             gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
             beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
-        self.add = tf.keras.layers.Add()
+        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self.add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1]
-        self.dense_output = tf.keras.layers.Dense(
+        self.dense_output = keras.layers.Dense(
             units=embedding_dimension, activation=None, use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
             kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
@@ -224,8 +224,8 @@ class TransformerFeedForward(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TransformerEncoderLayer(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TransformerEncoderLayer(keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
@@ -334,8 +334,8 @@ class TransformerEncoderLayer(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TransformerDecoderLayer(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TransformerDecoderLayer(keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
@@ -417,8 +417,8 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=rate, seed=seed)
 
-    def call(self, inputs, context=None, training=False, **kwargs):
-        x = self.self_attention(inputs, context=None, training=training, use_causal_mask=True)
+    def call(self, inputs, context=None, use_causal_mask=True, training=False, **kwargs):
+        x = self.self_attention(inputs, context=None, training=training, use_causal_mask=use_causal_mask)
         x = self.cross_attention(x, context=context, training=training, use_causal_mask=False)
         x = self.feed_forward(x, training=training)
         return x
@@ -453,8 +453,8 @@ class TransformerDecoderLayer(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TransformerEncoder(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TransformerEncoder(keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
@@ -562,8 +562,8 @@ class TransformerEncoder(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TransformerDecoder(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TransformerDecoder(keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
@@ -671,8 +671,8 @@ class TransformerDecoder(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class Transformer(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class Transformer(keras.layers.Layer):
     def __init__(self,
                  encoder_units,
                  encoder_num_heads,

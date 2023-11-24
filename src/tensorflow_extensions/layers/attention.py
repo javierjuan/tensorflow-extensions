@@ -1,11 +1,11 @@
-import tensorflow as tf
+import keras_core as keras
 
 from .dense import DenseBlock
 from .pooling import ChannelMaxPooling, ChannelAveragePooling
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class ConvolutionalAttention2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class ConvolutionalAttention2D(keras.layers.Layer):
     def __init__(self,
                  reduction_factor=8,
                  activation='mish',
@@ -139,8 +139,8 @@ class ConvolutionalAttention2D(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class ChannelAttention2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class ChannelAttention2D(keras.layers.Layer):
     def __init__(self,
                  reduction_factor=8,
                  activation='mish',
@@ -202,9 +202,9 @@ class ChannelAttention2D(tf.keras.layers.Layer):
         self.dense_mid = None
         self.dense_out = None
         self.reshape = None
-        self.global_max_pooling = tf.keras.layers.GlobalMaxPooling2D()
-        self.global_average_pooling = tf.keras.layers.GlobalAveragePooling2D()
-        self.concatenate = tf.keras.layers.Concatenate(axis=axis)
+        self.global_max_pooling = keras.layers.GlobalMaxPooling2D()
+        self.global_average_pooling = keras.layers.GlobalAveragePooling2D()
+        self.concatenate = keras.layers.Concatenate(axis=axis)
 
     def build(self, input_shape):
         input_channels = input_shape[-1]
@@ -220,13 +220,13 @@ class ChannelAttention2D(tf.keras.layers.Layer):
             moving_variance_initializer=self.moving_variance_initializer, beta_regularizer=self.beta_regularizer,
             beta_constraint=self.beta_constraint, gamma_constraint=self.gamma_constraint,
             synchronized=self.synchronized, axis=self.axis, rate=None, seed=None)
-        self.dense_out = tf.keras.layers.Dense(
+        self.dense_out = keras.layers.Dense(
             units=input_channels, activation='sigmoid', use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
             kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
             activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
             bias_constraint=self.bias_constraint)
-        self.reshape = tf.keras.layers.Reshape(target_shape=(1, 1, input_channels))
+        self.reshape = keras.layers.Reshape(target_shape=(1, 1, input_channels))
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
@@ -271,8 +271,8 @@ class ChannelAttention2D(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class SpatialAttention2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class SpatialAttention2D(keras.layers.Layer):
     def __init__(self,
                  kernel_size=(7, 7),
                  strides=(1, 1),
@@ -308,7 +308,7 @@ class SpatialAttention2D(tf.keras.layers.Layer):
         self.bias_constraint = bias_constraint
         self.supports_masking = True
 
-        self.convolution = tf.keras.layers.Convolution2D(
+        self.convolution = keras.layers.Convolution2D(
             filters=1, kernel_size=kernel_size, strides=strides, padding=padding, data_format=data_format,
             dilation_rate=dilation_rate, groups=convolution_groups, activation='sigmoid', use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -317,7 +317,7 @@ class SpatialAttention2D(tf.keras.layers.Layer):
             bias_constraint=bias_constraint)
         self.channel_max_pooling = ChannelMaxPooling(keepdims=True)
         self.channel_average_pooling = ChannelAveragePooling(keepdims=True)
-        self.concatenate = tf.keras.layers.Concatenate(axis=axis)
+        self.concatenate = keras.layers.Concatenate(axis=axis)
 
     def call(self, inputs, **kwargs):
         cap = self.channel_average_pooling(inputs)

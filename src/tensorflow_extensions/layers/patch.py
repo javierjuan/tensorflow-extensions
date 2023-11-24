@@ -1,8 +1,9 @@
-import tensorflow as tf
+import keras_core as keras
+from keras_core import ops
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class PatchExtractor2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class PatchExtractor2D(keras.layers.Layer):
     def __init__(self,
                  size,
                  strides=None,
@@ -25,8 +26,9 @@ class PatchExtractor2D(tf.keras.layers.Layer):
         self.supports_masking = True
 
     def call(self, inputs, **kwargs):
-        return tf.image.extract_patches(images=inputs, sizes=self.size, strides=self.strides, rates=self.rates,
-                                        padding=self.padding.upper())
+        # TODO: Check this
+        return ops.image.extract_patches(image=inputs, size=self.size, strides=self.strides, dilation_rate=self.rates,
+                                         padding=self.padding)
 
     def get_config(self):
         config = super().get_config()

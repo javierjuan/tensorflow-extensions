@@ -1,8 +1,8 @@
-import tensorflow as tf
+import keras_core as keras
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class DenseBlock(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class DenseBlock(keras.layers.Layer):
     def __init__(self,
                  units,
                  activation='mish',
@@ -65,33 +65,33 @@ class DenseBlock(tf.keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.dense = tf.keras.layers.Dense(
+        self.dense = keras.layers.Dense(
             units=units, activation=None, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
         if normalization == 'batch':
-            self.normalization = tf.keras.layers.BatchNormalization(
+            self.normalization = keras.layers.BatchNormalization(
                 axis=axis, momentum=momentum, epsilon=epsilon, center=center, scale=scale,
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
                 moving_mean_initializer=moving_mean_initializer, beta_regularizer=beta_regularizer,
                 moving_variance_initializer=moving_variance_initializer, gamma_regularizer=gamma_regularizer,
                 beta_constraint=beta_constraint, gamma_constraint=gamma_constraint, synchronized=synchronized)
         elif normalization == 'layer':
-            self.normalization = tf.keras.layers.LayerNormalization(
+            self.normalization = keras.layers.LayerNormalization(
                 axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
                 gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, beta_constraint=beta_constraint,
                 gamma_regularizer=gamma_regularizer, gamma_constraint=gamma_constraint)
         elif normalization == 'group':
-            self.normalization = tf.keras.layers.GroupNormalization(
+            self.normalization = keras.layers.GroupNormalization(
                 groups=normalization_groups, axis=axis, epsilon=epsilon, center=center, scale=scale,
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_constraint=beta_constraint,
                 beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
                 gamma_constraint=gamma_constraint)
         else:
             self.normalization = None
-        self.activation = tf.keras.layers.Activation(activation=activation)
-        self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self.activation = keras.layers.Activation(activation=activation)
+        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
         if self.dropout is not None:

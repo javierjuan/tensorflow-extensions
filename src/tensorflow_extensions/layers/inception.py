@@ -1,10 +1,10 @@
-import tensorflow as tf
+import keras_core as keras
 
 from .convolution import ConvolutionBlock2D
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class InceptionBlock2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class InceptionBlock2D(keras.layers.Layer):
     def __init__(self,
                  filters,
                  strides=(1, 1),
@@ -127,7 +127,7 @@ class InceptionBlock2D(tf.keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             synchronized=synchronized, axis=axis, rate=None, seed=None)
-        self.max_pooling = tf.keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding=padding)
+        self.max_pooling = keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding=padding)
         self.block_max_pooling = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
@@ -152,8 +152,8 @@ class InceptionBlock2D(tf.keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             synchronized=synchronized, axis=axis, rate=None, seed=None)
-        self.concatenate = tf.keras.layers.Concatenate(axis=axis)
-        self.dropout = tf.keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
+        self.concatenate = keras.layers.Concatenate(axis=axis)
+        self.dropout = keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
         if self.dropout is not None:

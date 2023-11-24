@@ -1,26 +1,26 @@
+import keras_core as keras
+from keras_core import ops
 import tensorflow as tf
 
 from .utils import initialize_loss, finalize_loss
 
 
 @tf.function
-@tf.keras.saving.register_keras_serializable(package='tfe.losses')
+@keras.saving.register_keras_serializable(package='tfe.losses')
 def dice_score(y_true, y_pred):
     # IMPORTANT: The denominator MUST be squared for mathematical correctness. Dice metric is defined for discrete
     # sets of labels. For continuous probability arrays the denominator must be squared in order to accomplish with
     # the concept of `cardinality` -> |A| = sum(a_i^2).
-    axis_reduce = tf.range(start=1, limit=tf.rank(y_pred) - 1)
-    numerator = 2.0 * tf.math.reduce_sum(y_true * y_pred, axis=axis_reduce)
-    denominator = tf.math.reduce_sum(tf.math.square(y_true) + tf.math.square(y_pred), axis=axis_reduce)
-    return tf.math.divide_no_nan(numerator, denominator)
+    axis_reduce = ops.arange(start=1, limit=ops.ndim(y_pred) - 1)
+    numerator = 2.0 * ops.sum(y_true * y_pred, axis=axis_reduce)
+    denominator = ops.sum(ops.square(y_true) + ops.square(y_pred), axis=axis_reduce)
+    return ops.where(ops.equal(denominator, 0.0), 0.0, ops.divide(numerator, denominator))
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.losses')
-class Dice(tf.keras.losses.Loss):
-    def __init__(self, label_smoothing=0.1, label_penalties=None, from_logits=False,
-                 reduction=tf.keras.losses.Reduction.AUTO, name='dice'):
+@keras.saving.register_keras_serializable(package='tfe.losses')
+class Dice(keras.losses.Loss):
+    def __init__(self, label_smoothing=0.1, label_penalties=None, from_logits=False, reduction='sum_over_batch_size', name='dice'):
         super().__init__(name=name, reduction=reduction)
-
         self.label_smoothing = label_smoothing
         self.label_penalties = label_penalties
         self.from_logits = from_logits

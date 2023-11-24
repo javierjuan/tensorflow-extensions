@@ -1,12 +1,13 @@
-import tensorflow as tf
+import keras_core as keras
+from keras_core import ops
 
 from .embedding import FixedEmbedding
 from .math import CartesianConcatenation2D
 from .patch import PatchExtractor2D
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class PositionalEncoding1D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class PositionalEncoding1D(keras.layers.Layer):
     def __init__(self,
                  max_wavelength=10000,
                  name=None,
@@ -17,23 +18,23 @@ class PositionalEncoding1D(tf.keras.layers.Layer):
 
         self.positions_mask = None
         self.timescales = None
-        self.add = tf.keras.layers.Add()
+        self.add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1]
-        timescales = tf.math.pow(tf.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
-                                 (tf.cast(2 * (tf.range(embedding_dimension) // 2), self.compute_dtype) /
-                                  tf.cast(embedding_dimension, self.compute_dtype)))
-        self.timescales = tf.expand_dims(timescales, axis=0)
-        self.positions_mask = tf.cast(tf.range(embedding_dimension) % 2, self.compute_dtype)
+        timescales = ops.power(ops.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
+                               (ops.cast(2 * (ops.arange(embedding_dimension) // 2), self.compute_dtype) /
+                                ops.cast(embedding_dimension, self.compute_dtype)))
+        self.timescales = ops.expand_dims(timescales, axis=0)
+        self.positions_mask = ops.cast(ops.arange(embedding_dimension) % 2, self.compute_dtype)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        input_shape = tf.shape(inputs)
-        positions = tf.cast(tf.range(input_shape[-2]), dtype=self.compute_dtype)
-        angles = tf.expand_dims(positions, axis=1) * self.timescales
-        encoding = tf.math.sin(angles) * (1 - self.positions_mask) + tf.math.cos(angles) * self.positions_mask
-        return self.add([inputs, tf.broadcast_to(encoding, shape=input_shape)])
+        input_shape = ops.shape(inputs)
+        positions = ops.cast(ops.arange(input_shape[-2]), dtype=self.compute_dtype)
+        angles = ops.expand_dims(positions, axis=1) * self.timescales
+        encoding = ops.sin(angles) * (1 - self.positions_mask) + ops.cos(angles) * self.positions_mask
+        return self.add([inputs, ops.broadcast_to(encoding, shape=input_shape)])
 
     def get_config(self):
         config = super().get_config()
@@ -43,8 +44,8 @@ class PositionalEncoding1D(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class PositionalEmbedding1D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class PositionalEmbedding1D(keras.layers.Layer):
     def __init__(self,
                  sequence_length,
                  embeddings_initializer='uniform',
@@ -66,10 +67,10 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
         self.supports_masking = True
 
         self.embedding = None
-        self.add = tf.keras.layers.Add()
+        self.add = keras.layers.Add()
 
     def build(self, input_shape):
-        self.embedding = tf.keras.layers.Embedding(
+        self.embedding = keras.layers.Embedding(
             input_dim=self.sequence_length, output_dim=input_shape[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             activity_regularizer=self.activity_regularizer, embeddings_constraint=self.embeddings_constraint,
@@ -77,9 +78,9 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        input_shape = tf.shape(inputs)
-        positions = tf.cast(tf.range(input_shape[-2]), dtype=self.compute_dtype)
-        return self.add([inputs, tf.broadcast_to(self.embedding(positions), shape=input_shape)])
+        input_shape = ops.shape(inputs)
+        positions = ops.cast(ops.arange(input_shape[-2]), dtype=self.compute_dtype)
+        return self.add([inputs, ops.broadcast_to(self.embedding(positions), shape=input_shape)])
 
     def get_config(self):
         config = super().get_config()
@@ -95,8 +96,8 @@ class PositionalEmbedding1D(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class PositionalEmbedding2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class PositionalEmbedding2D(keras.layers.Layer):
     def __init__(self,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
@@ -112,7 +113,7 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
         self.row_embedding = None
         self.col_embedding = None
         self.cartesian_concatenation = CartesianConcatenation2D()
-        self.add = tf.keras.layers.Add()
+        self.add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1] // 2
@@ -127,13 +128,13 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        inputs_shape = tf.shape(inputs)
+        inputs_shape = ops.shape(inputs)
         rows_embedding = self.row_embedding(batch_size=inputs_shape[0])
         cols_embedding = self.col_embedding(batch_size=inputs_shape[0])
         embedding = self.cartesian_concatenation([rows_embedding, cols_embedding])
-        embedding_shape = tf.shape(embedding)
-        embedding = tf.reshape(embedding, shape=[-1, embedding_shape[-3] * embedding_shape[-2], embedding_shape[-1]])
-        inputs = tf.reshape(inputs, shape=[-1, inputs_shape[-3] * inputs_shape[-2], inputs_shape[-1]])
+        embedding_shape = ops.shape(embedding)
+        embedding = ops.reshape(embedding, [-1, embedding_shape[-3] * embedding_shape[-2], embedding_shape[-1]])
+        inputs = ops.reshape(inputs, [-1, inputs_shape[-3] * inputs_shape[-2], inputs_shape[-1]])
         return self.add([inputs, embedding])
 
     def get_config(self):
@@ -146,8 +147,8 @@ class PositionalEmbedding2D(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TokenAndPositionEncoding(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TokenAndPositionEncoding(keras.layers.Layer):
     def __init__(self,
                  vocabulary_size,
                  embedding_dimension,
@@ -178,13 +179,13 @@ class TokenAndPositionEncoding(tf.keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.token_embedding = tf.keras.layers.Embedding(
+        self.token_embedding = keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
             embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
             sparse=sparse)
         self.positional_encoding = PositionalEncoding1D(max_wavelength=max_wavelength)
-        self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
         x = self.token_embedding(inputs)
@@ -212,8 +213,8 @@ class TokenAndPositionEncoding(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class TokenAndPositionEmbedding(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class TokenAndPositionEmbedding(keras.layers.Layer):
     def __init__(self,
                  sequence_length,
                  vocabulary_size,
@@ -244,7 +245,7 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.token_embedding = tf.keras.layers.Embedding(
+        self.token_embedding = keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
             embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
@@ -253,7 +254,7 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
             sequence_length=sequence_length, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
             embeddings_constraint=embeddings_constraint, input_length=input_length, sparse=sparse)
-        self.dropout = tf.keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
         x = self.token_embedding(inputs)
@@ -281,8 +282,8 @@ class TokenAndPositionEmbedding(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class PatchEmbedding2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class PatchEmbedding2D(keras.layers.Layer):
     def __init__(self,
                  size,
                  embedding_dimension,
@@ -329,18 +330,19 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
         self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self.class_token = self.add_weight(shape=[1, 1, embedding_dimension], name='class_token', trainable=True)
+        self.class_token = self.add_weight(shape=[1, 1, embedding_dimension], initializer='glorot_uniform',
+                                           trainable=True, name='class_token')
         if mode in ('patch', 'crop'):
             strides = size if strides is None else strides
             self.patch_extractor = PatchExtractor2D(size=size, strides=strides, rates=rates, padding=padding)
-            self.dense = tf.keras.layers.Dense(
+            self.dense = keras.layers.Dense(
                 units=embedding_dimension, activation=None, use_bias=use_bias, kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer,
                 bias_regularizer=bias_regularizer, activity_regularizer=activity_regularizer,
                 kernel_constraint=kernel_constraint, bias_constraint=bias_constraint)
         elif mode in ('convolution', 'conv'):
             strides = (1, 1) if strides is None else strides
-            self.convolution = tf.keras.layers.Convolution2D(
+            self.convolution = keras.layers.Convolution2D(
                 filters=embedding_dimension, kernel_size=size, strides=strides, padding=padding,
                 data_format=data_format, dilation_rate=dilation_rate, groups=convolution_groups, activation=None,
                 use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -350,7 +352,7 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
         else:
             raise ValueError(f'Unexpected value for `mode`: {mode}. Possible values are: `convolution`, `conv`, '
                              f'`patch` or `crop`.')
-        self.add = tf.keras.layers.Add()
+        self.add = keras.layers.Add()
         self.embedding = None
 
     def build(self, input_shape):
@@ -368,7 +370,7 @@ class PatchEmbedding2D(tf.keras.layers.Layer):
             patches = self.dense(patches)
         else:
             patches = self.convolution(inputs)
-        patches = tf.reshape(patches, shape=[-1, patches.shape[1] * patches.shape[2], patches.shape[3]])
+        patches = ops.reshape(patches, shape=[-1, patches.shape[1] * patches.shape[2], patches.shape[3]])
         return self.add([patches, self.embedding(None)])
 
     def get_config(self):

@@ -1,10 +1,10 @@
-import tensorflow as tf
+import keras_core as keras
 
 from .attention import ConvolutionalAttention2D
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class ResidualBlock2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class ResidualBlock2D(keras.layers.Layer):
     def __init__(self,
                  layer,
                  attention=True,
@@ -43,7 +43,7 @@ class ResidualBlock2D(tf.keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.layer = layer if isinstance(layer, tf.keras.layers.Layer) else tf.keras.layers.deserialize(layer)
+        self.layer = layer if isinstance(layer, keras.layers.Layer) else keras.layers.deserialize(layer)
         self.attention = attention
         self.reduction_factor = reduction_factor
         self.kernel_size = kernel_size
@@ -92,14 +92,14 @@ class ResidualBlock2D(tf.keras.layers.Layer):
             synchronized=synchronized, axis=axis, kernel_size=kernel_size, strides=strides, padding=padding,
             data_format=data_format, dilation_rate=dilation_rate, convolution_groups=convolution_groups) if attention \
             else None
-        self.add = tf.keras.layers.Add()
+        self.add = keras.layers.Add()
         self.adapt_input = None
 
     def build(self, input_shape):
         input_channels = input_shape[-1]
         layer_channels = self.layer.compute_output_shape(input_shape=input_shape)[-1]
         if input_channels != layer_channels:
-            self.adapt_input = tf.keras.layers.Convolution2D(
+            self.adapt_input = keras.layers.Convolution2D(
                 filters=layer_channels, kernel_size=(1, 1), padding='same', activation=None)
         super().build(input_shape=input_shape)
 
@@ -113,7 +113,7 @@ class ResidualBlock2D(tf.keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
-            'layer': tf.keras.layers.serialize(self.layer),
+            'layer': keras.layers.serialize(self.layer),
             'attention': self.attention,
             'reduction_factor': self.reduction_factor,
             'kernel_size': self.kernel_size,

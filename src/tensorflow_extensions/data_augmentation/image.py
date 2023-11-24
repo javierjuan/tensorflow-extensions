@@ -1,8 +1,8 @@
+import keras_core as keras
 import keras_cv as kcv
-import tensorflow as tf
 
 
-class RandomAugmentation(tf.keras.layers.Layer):
+class RandomAugmentation(keras.layers.Layer):
     def __init__(self,
                  augmentations_per_image=3,
                  magnitude=0.5,

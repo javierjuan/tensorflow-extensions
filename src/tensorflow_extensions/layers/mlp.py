@@ -1,9 +1,9 @@
-import tensorflow as tf
+import keras_core as keras
 
 from .dense import DenseBlock
 
 
-class MultiLayerPerceptron(tf.keras.layers.Layer):
+class MultiLayerPerceptron(keras.layers.Layer):
     def __init__(self,
                  units,
                  activation='mish',

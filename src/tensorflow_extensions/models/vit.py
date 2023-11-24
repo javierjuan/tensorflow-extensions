@@ -1,4 +1,4 @@
-import tensorflow as tf
+import keras_core as keras
 
 from .model import Model
 from ..layers.dense import DenseBlock
@@ -6,7 +6,7 @@ from ..layers.encoding import PatchEmbedding2D
 from ..layers.transformer import TransformerEncoder
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.models')
+@keras.saving.register_keras_serializable(package='tfe.models')
 class ViT(Model):
     def __init__(self,
                  patch_size,
@@ -78,8 +78,8 @@ class ViT(Model):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.normalization = tf.keras.layers.LayerNormalization(epsilon=epsilon)
-        self.flatten = tf.keras.layers.Flatten()
+        self.normalization = keras.layers.LayerNormalization(epsilon=epsilon)
+        self.flatten = keras.layers.Flatten()
         self.dense_blocks = [DenseBlock(
             units=_dense_units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -90,11 +90,11 @@ class ViT(Model):
             moving_variance_initializer=moving_variance_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             synchronized=synchronized, axis=axis, rate=rate, seed=seed) for _dense_units in dense_units]
-        self.posteriors = tf.keras.layers.Dense(
+        self.posteriors = keras.layers.Dense(
             units=num_classes, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint, dtype=tf.float32)
+            bias_constraint=bias_constraint, dtype='float32')
 
     def call(self, inputs, training=False, **kwargs):
         x = self.patch_encoding(inputs)

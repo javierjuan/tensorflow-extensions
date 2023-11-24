@@ -1,8 +1,9 @@
-import tensorflow as tf
+import keras_core as keras
+from keras_core import ops
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class FixedEmbedding(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class FixedEmbedding(keras.layers.Layer):
     def __init__(self,
                  input_dim,
                  output_dim,
@@ -26,9 +27,7 @@ class FixedEmbedding(tf.keras.layers.Layer):
         if batch_size is None:
             return self.embedding
         else:
-            x = tf.expand_dims(self.embedding, axis=0)
-            multiples = tf.one_hot(indices=0, depth=tf.rank(x), on_value=batch_size, off_value=1, dtype=tf.int32)
-            return tf.tile(x, multiples=multiples)
+            return ops.repeat(ops.expand_dims(self.embedding, axis=0), repeats=batch_size, axis=0)
 
     def get_config(self):
         config = super().get_config()

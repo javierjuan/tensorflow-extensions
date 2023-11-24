@@ -1,8 +1,9 @@
-import tensorflow as tf
+import keras_core as keras
+from keras_core import ops
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class ChannelAveragePooling(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class ChannelAveragePooling(keras.layers.Layer):
     def __init__(self,
                  keepdims=False,
                  data_format=None,
@@ -10,16 +11,16 @@ class ChannelAveragePooling(tf.keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.keepdims = keepdims
-        self.data_format = tf.keras.backend.image_data_format().lower() if data_format is None else data_format.lower()
+        self.data_format = keras.backend.image_data_format().lower() if data_format is None else data_format.lower()
         if self.data_format not in ('channels_first', 'channels_last'):
             raise ValueError('The `data_format` argument must be one of "channels_first", "channels_last". '
                              f'Received: {self.data_format}')
 
     def call(self, inputs, **kwargs):
         if self.data_format == 'channels_last':
-            return tf.math.reduce_mean(inputs, axis=-1, keepdims=self.keepdims)
+            return ops.mean(inputs, axis=-1, keepdims=self.keepdims)
         else:
-            return tf.math.reduce_mean(inputs, axis=1, keepdims=self.keepdims)
+            return ops.mean(inputs, axis=1, keepdims=self.keepdims)
 
     def get_config(self):
         config = super().get_config()
@@ -30,8 +31,8 @@ class ChannelAveragePooling(tf.keras.layers.Layer):
         return config
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class ChannelMaxPooling(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class ChannelMaxPooling(keras.layers.Layer):
     def __init__(self,
                  keepdims=False,
                  data_format=None,
@@ -40,16 +41,16 @@ class ChannelMaxPooling(tf.keras.layers.Layer):
 
         super().__init__(name=name, **kwargs)
         self.keepdims = keepdims
-        self.data_format = tf.keras.backend.image_data_format().lower() if data_format is None else data_format.lower()
+        self.data_format = keras.backend.image_data_format().lower() if data_format is None else data_format.lower()
         if self.data_format not in ('channels_first', 'channels_last'):
             raise ValueError('The `data_format` argument must be one of "channels_first", "channels_last". '
                              f'Received: {self.data_format}')
 
     def call(self, inputs, **kwargs):
         if self.data_format == 'channels_last':
-            return tf.math.reduce_max(inputs, axis=-1, keepdims=self.keepdims)
+            return ops.max(inputs, axis=-1, keepdims=self.keepdims)
         else:
-            return tf.math.reduce_max(inputs, axis=1, keepdims=self.keepdims)
+            return ops.max(inputs, axis=1, keepdims=self.keepdims)
 
     def get_config(self):
         config = super().get_config()
