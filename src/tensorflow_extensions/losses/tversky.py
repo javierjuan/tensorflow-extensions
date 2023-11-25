@@ -24,7 +24,7 @@ def tversky_score(y_true, y_pred, alpha=0.5, beta=0.5):
     axis_reduce = ops.arange(start=1, stop=ops.ndim(y_pred) - 1)
     numerator = ops.sum(tp, axis=axis_reduce)
     denominator = ops.sum(tp + ops.square(fp) + ops.square(fn), axis=axis_reduce)
-    return ops.where(ops.equal(denominator, 0.0), 0.0, ops.divide(numerator, denominator))
+    return ops.where(ops.equal(denominator, 0.0), ops.zeros_like(numerator), numerator / denominator)
 
 
 @keras.saving.register_keras_serializable(package='tfe.losses')

@@ -9,4 +9,4 @@ class Jaccard(keras.metrics.FBetaScore):
 
     def result(self):
         score = super().result()
-        return ops.divide(score, (2 - score))
+        return score / (2 - score)
