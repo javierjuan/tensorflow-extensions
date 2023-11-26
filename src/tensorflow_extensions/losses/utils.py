@@ -37,7 +37,7 @@ def finalize_loss(loss, reduction='sum', label_penalties=None):
         label_penalties = 1.0 + ops.convert_to_tensor(label_penalties, dtype='float32')
         if not label_penalties.shape.is_compatible_with(loss.shape):
             label_penalties = ops.broadcast_to(label_penalties, loss.shape)
-        loss = ops.multiply(loss, label_penalties)
+        loss *= label_penalties
 
     if reduction == 'sum':
         loss = ops.sum(loss, axis=-1)
