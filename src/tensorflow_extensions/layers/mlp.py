@@ -29,7 +29,6 @@ class MultiLayerPerceptron(keras.layers.Layer):
                  gamma_regularizer=None,
                  beta_constraint=None,
                  gamma_constraint=None,
-                 synchronized=False,
                  axis=-1,
                  rate=None,
                  seed=None,
@@ -72,7 +71,6 @@ class MultiLayerPerceptron(keras.layers.Layer):
         self.gamma_regularizer = gamma_regularizer
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
-        self.synchronized = synchronized
         self.axis = axis
         self.rate = rate
         self.seed = seed
@@ -87,7 +85,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             gamma_regularizer=gamma_regularizer, moving_variance_initializer=moving_variance_initializer,
             beta_regularizer=beta_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            synchronized=synchronized, axis=axis, rate=_rate, seed=None)
+            axis=axis, rate=_rate, seed=None)
             for _units, _normalization, _activation, _rate in zip(units, normalization, activation, rate)]
 
     def call(self, inputs, training=False, **kwargs):
@@ -122,7 +120,6 @@ class MultiLayerPerceptron(keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint,
-            'synchronized': self.synchronized,
             'axis': self.axis,
             'rate': self.rate,
             'seed': self.seed

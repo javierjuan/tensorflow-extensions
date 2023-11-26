@@ -34,7 +34,6 @@ class ConvolutionBlock2D(keras.layers.Layer):
                  gamma_regularizer=None,
                  beta_constraint=None,
                  gamma_constraint=None,
-                 synchronized=False,
                  axis=-1,
                  rate=None,
                  seed=None,
@@ -71,7 +70,6 @@ class ConvolutionBlock2D(keras.layers.Layer):
         self.gamma_regularizer = gamma_regularizer
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
-        self.synchronized = synchronized
         self.axis = axis
         self.rate = rate
         self.seed = seed
@@ -90,7 +88,7 @@ class ConvolutionBlock2D(keras.layers.Layer):
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
                 moving_mean_initializer=moving_mean_initializer, beta_regularizer=beta_regularizer,
                 moving_variance_initializer=moving_variance_initializer, gamma_regularizer=gamma_regularizer,
-                beta_constraint=beta_constraint, gamma_constraint=gamma_constraint, synchronized=synchronized)
+                beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         elif normalization == 'layer':
             self.normalization = keras.layers.LayerNormalization(
                 axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
@@ -149,7 +147,6 @@ class ConvolutionBlock2D(keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint,
-            'synchronized': self.synchronized,
             'axis': self.axis,
             'rate': self.rate,
             'seed': self.seed

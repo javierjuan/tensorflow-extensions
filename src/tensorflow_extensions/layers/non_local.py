@@ -1,10 +1,8 @@
-import tensorflow as tf
-
-from .math import MatrixMultiplication
+import keras_core as keras
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.layers')
-class NonLocalBlock2D(tf.keras.layers.Layer):
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class NonLocalBlock2D(keras.layers.Layer):
     def __init__(self,
                  mode,
                  strides=(1, 1),
@@ -34,7 +32,6 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
                  gamma_regularizer=None,
                  beta_constraint=None,
                  gamma_constraint=None,
-                 synchronized=False,
                  axis=-1,
                  rate=None,
                  seed=None,
@@ -69,7 +66,6 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
         self.gamma_regularizer = gamma_regularizer
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
-        self.synchronized = synchronized
         self.axis = axis
         self.rate = rate
         self.seed = seed
@@ -80,19 +76,19 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
         self.phi = None
         self.convolution = None
         if normalization == 'batch':
-            self.normalization = tf.keras.layers.BatchNormalization(
+            self.normalization = keras.layers.BatchNormalization(
                 axis=axis, momentum=momentum, epsilon=epsilon, center=center, scale=scale,
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
                 moving_mean_initializer=moving_mean_initializer, beta_regularizer=beta_regularizer,
                 moving_variance_initializer=moving_variance_initializer, gamma_regularizer=gamma_regularizer,
-                beta_constraint=beta_constraint, gamma_constraint=gamma_constraint, synchronized=synchronized)
+                beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         elif normalization == 'layer':
-            self.normalization = tf.keras.layers.LayerNormalization(
+            self.normalization = keras.layers.LayerNormalization(
                 axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
                 gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, beta_constraint=beta_constraint,
                 gamma_regularizer=gamma_regularizer, gamma_constraint=gamma_constraint)
         elif normalization == 'group':
-            self.normalization = tf.keras.layers.GroupNormalization(
+            self.normalization = keras.layers.GroupNormalization(
                 groups=normalization_groups, axis=axis, epsilon=epsilon, center=center, scale=scale,
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_constraint=beta_constraint,
                 beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
@@ -101,20 +97,21 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
             self.normalization = None
         self.flatten = None
         self.expand = None
-        self.multiplication = MatrixMultiplication()
-        self.softmax = tf.keras.layers.Softmax()
-        self.dropout = tf.keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
+        self.dot = keras.layers.Dot(axes=[1, 2])
+        self.transpose = keras.layers.Permute([2, 1])
+        self.softmax = keras.layers.Softmax()
+        self.dropout = keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
 
     def build(self, input_shape):
         filters = int(max(1, input_shape[-1] // 2))
-        self.convolution = tf.keras.layers.Convolution2D(
+        self.convolution = keras.layers.Convolution2D(
             filters=filters, kernel_size=(1, 1), strides=self.strides, padding=self.padding,
             data_format=self.data_format, dilation_rate=self.dilation_rate, groups=self.convolution_groups,
             activation=None, use_bias=self.use_bias, kernel_initializer=self.kernel_initializer,
             bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
             bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
             kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
-        self.g = tf.keras.layers.Convolution2D(
+        self.g = keras.layers.Convolution2D(
             filters=filters, kernel_size=(1, 1), strides=self.strides, padding=self.padding,
             data_format=self.data_format, dilation_rate=self.dilation_rate, groups=self.convolution_groups,
             activation=None, use_bias=self.use_bias, kernel_initializer=self.kernel_initializer,
@@ -122,22 +119,22 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
             bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
             kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
         if self.mode == 'embedding' or self.mode == 'dot' or self.mode == 'concat':
-            self.theta = tf.keras.layers.Convolution2D(
+            self.theta = keras.layers.Convolution2D(
                 filters=filters, kernel_size=(1, 1), strides=self.strides, padding=self.padding,
                 data_format=self.data_format, dilation_rate=self.dilation_rate, groups=self.convolution_groups,
                 activation=None, use_bias=self.use_bias, kernel_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
                 bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
                 kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
-            self.phi = tf.keras.layers.Convolution2D(
+            self.phi = keras.layers.Convolution2D(
                 filters=filters, kernel_size=(1, 1), strides=self.strides, padding=self.padding,
                 data_format=self.data_format, dilation_rate=self.dilation_rate, groups=self.convolution_groups,
                 activation=None, use_bias=self.use_bias, kernel_initializer=self.kernel_initializer,
                 bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
                 bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
                 kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
-        self.flatten = tf.keras.layers.Reshape([-1, filters])
-        self.expand = tf.keras.layers.Reshape(input_shape[1:-1] + filters)
+        self.flatten = keras.layers.Reshape([-1, filters])
+        self.expand = keras.layers.Reshape(input_shape[1:-1] + (filters,))
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
@@ -151,12 +148,12 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
             pass
         else:
             raise ValueError(f'Unexpected `mode` value: {self.mode}')
-        f = self.multiplication(a=self.flatten(x), b=self.flatten(y), transpose_b=True)
+        f = self.dot([self.flatten(x), self.transpose(self.flatten(y))])
         if self.mode == 'gaussian' or self.mode == 'embedding':
             f = self.softmax(f)
         elif self.mode == 'dot' or self.mode == 'concatenate':
             f /= f.shape[1]
-        z = self.expand(self.multiplication(a=f, b=g))
+        z = self.expand(self.dot([f, g]))
         z = self.convolution(z)
         if self.normalization is not None:
             z = self.normalization(z)
@@ -193,7 +190,6 @@ class NonLocalBlock2D(tf.keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint,
-            'synchronized': self.synchronized,
             'axis': self.axis,
             'rate': self.rate,
             'seed': self.seed

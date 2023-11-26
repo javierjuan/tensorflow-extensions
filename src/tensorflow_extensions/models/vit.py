@@ -47,7 +47,6 @@ class ViT(Model):
                  normalization_groups=32,
                  moving_mean_initializer='zeros',
                  moving_variance_initializer='ones',
-                 synchronized=False,
                  mode='convolution',
                  strides=None,
                  rates=(1, 1),
@@ -89,7 +88,7 @@ class ViT(Model):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             moving_variance_initializer=moving_variance_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            synchronized=synchronized, axis=axis, rate=rate, seed=seed) for _dense_units in dense_units]
+            axis=axis, rate=rate, seed=seed) for _dense_units in dense_units]
         self.posteriors = keras.layers.Dense(
             units=num_classes, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,

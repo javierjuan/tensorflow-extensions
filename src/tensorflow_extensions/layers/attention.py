@@ -31,7 +31,6 @@ class ConvolutionalAttention2D(keras.layers.Layer):
                  gamma_regularizer=None,
                  beta_constraint=None,
                  gamma_constraint=None,
-                 synchronized=False,
                  axis=-1,
                  kernel_size=(7, 7),
                  strides=(1, 1),
@@ -66,7 +65,6 @@ class ConvolutionalAttention2D(keras.layers.Layer):
         self.gamma_regularizer = gamma_regularizer
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
-        self.synchronized = synchronized
         self.axis = axis
         self.kernel_size = kernel_size
         self.strides = strides
@@ -86,7 +84,7 @@ class ConvolutionalAttention2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            synchronized=synchronized, axis=axis)
+            axis=axis)
         self.spatial_attention_block = SpatialAttention2D(
             kernel_size=kernel_size, strides=strides, padding=padding, data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, use_bias=use_bias,
@@ -127,7 +125,6 @@ class ConvolutionalAttention2D(keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint,
-            'synchronized': self.synchronized,
             'axis': self.axis,
             'kernel_size': self.kernel_size,
             'strides': self.strides,
@@ -166,7 +163,6 @@ class ChannelAttention2D(keras.layers.Layer):
                  gamma_regularizer=None,
                  beta_constraint=None,
                  gamma_constraint=None,
-                 synchronized=False,
                  axis=-1,
                  name=None,
                  **kwargs):
@@ -195,7 +191,6 @@ class ChannelAttention2D(keras.layers.Layer):
         self.gamma_regularizer = gamma_regularizer
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
-        self.synchronized = synchronized
         self.axis = axis
         self.supports_masking = True
 
@@ -219,7 +214,7 @@ class ChannelAttention2D(keras.layers.Layer):
             moving_mean_initializer=self.moving_mean_initializer, gamma_regularizer=self.gamma_regularizer,
             moving_variance_initializer=self.moving_variance_initializer, beta_regularizer=self.beta_regularizer,
             beta_constraint=self.beta_constraint, gamma_constraint=self.gamma_constraint,
-            synchronized=self.synchronized, axis=self.axis, rate=None, seed=None)
+            axis=self.axis, rate=None, seed=None)
         self.dense_out = keras.layers.Dense(
             units=input_channels, activation='sigmoid', use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
@@ -265,7 +260,6 @@ class ChannelAttention2D(keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint,
-            'synchronized': self.synchronized,
             'axis': self.axis
         })
         return config

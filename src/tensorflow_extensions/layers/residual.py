@@ -38,7 +38,6 @@ class ResidualBlock2D(keras.layers.Layer):
                  gamma_regularizer=None,
                  beta_constraint=None,
                  gamma_constraint=None,
-                 synchronized=False,
                  axis=-1,
                  name=None,
                  **kwargs):
@@ -75,7 +74,6 @@ class ResidualBlock2D(keras.layers.Layer):
         self.gamma_regularizer = gamma_regularizer
         self.beta_constraint = beta_constraint
         self.gamma_constraint = gamma_constraint
-        self.synchronized = synchronized
         self.axis = axis
         self.supports_masking = True
 
@@ -89,7 +87,7 @@ class ResidualBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            synchronized=synchronized, axis=axis, kernel_size=kernel_size, strides=strides, padding=padding,
+            axis=axis, kernel_size=kernel_size, strides=strides, padding=padding,
             data_format=data_format, dilation_rate=dilation_rate, convolution_groups=convolution_groups) if attention \
             else None
         self.add = keras.layers.Add()
@@ -145,7 +143,6 @@ class ResidualBlock2D(keras.layers.Layer):
             'gamma_regularizer': self.gamma_regularizer,
             'beta_constraint': self.beta_constraint,
             'gamma_constraint': self.gamma_constraint,
-            'synchronized': self.synchronized,
             'axis': self.axis
         })
         return config
