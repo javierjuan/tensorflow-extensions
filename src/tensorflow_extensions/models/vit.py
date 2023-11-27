@@ -49,7 +49,6 @@ class ViT(Model):
                  moving_variance_initializer='ones',
                  mode='convolution',
                  strides=None,
-                 rates=(1, 1),
                  padding='valid',
                  data_format=None,
                  dilation_rate=(1, 1),
@@ -60,10 +59,10 @@ class ViT(Model):
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.patch_encoding = PatchEmbedding2D(
-            size=patch_size, embedding_dimension=embedding_dimension, mode=mode, strides=strides, rates=rates,
-            padding=padding, data_format=data_format, dilation_rate=dilation_rate,
-            convolution_groups=convolution_groups, use_bias=use_bias, kernel_initializer=kernel_initializer,
-            bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            size=patch_size, embedding_dimension=embedding_dimension, mode=mode, strides=strides, padding=padding,
+            data_format=data_format, dilation_rate=dilation_rate, convolution_groups=convolution_groups,
+            use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint,

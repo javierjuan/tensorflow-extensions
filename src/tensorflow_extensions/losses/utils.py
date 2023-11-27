@@ -6,7 +6,7 @@ from keras_core import ops
 @tf.function
 @keras.saving.register_keras_serializable(package='tfe.losses')
 def _label_smoothing(y_true, label_smoothing):
-    num_labels = ops.cast(ops.shape(y_true)[-1], dtype='float32')
+    num_labels = ops.cast(y_true.shape[-1], dtype='float32')
     return y_true * (1.0 - label_smoothing) + (label_smoothing / num_labels)
 
 
