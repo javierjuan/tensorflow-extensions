@@ -267,11 +267,11 @@ def test_residual_block():
 
 
 def test_transformer():
-    x = tf.random.uniform(shape=[32, 200, 1000], minval=0, maxval=1, seed=0)
-    y = tf.random.uniform(shape=[32, 150, 1000], minval=0, maxval=1, seed=0)
+    x = tf.random.uniform(shape=[32, 200, 1024], minval=0, maxval=1, seed=0)
+    y = tf.random.uniform(shape=[32, 150, 1024], minval=0, maxval=1, seed=0)
     layer = layers.Transformer(encoder_units=512, encoder_num_heads=8)
     result = layer([x, y])
-    assert ops.all(result.shape == tf.TensorShape([32, 150, 1000]))
+    assert ops.all(result.shape == tf.TensorShape([32, 150, 1024]))
     config = layer.get_config()
     layer = layers.Transformer.from_config(config)
     assert isinstance(layer, layers.Transformer)
