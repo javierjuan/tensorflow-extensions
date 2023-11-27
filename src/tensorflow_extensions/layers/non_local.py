@@ -38,6 +38,10 @@ class NonLocalBlock2D(keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+        if mode not in ('gaussian', 'embedding', 'concatenation', 'dot'):
+            raise ValueError(f'Unexpected `mode`: {mode}. Available options are: `gaussian`, `embedding`, '
+                             f'`concatenation` and `dot`')
+
         self.mode = mode
         self.strides = strides
         self.padding = padding
@@ -118,7 +122,7 @@ class NonLocalBlock2D(keras.layers.Layer):
             bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
             bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
             kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
-        if self.mode == 'embedding' or self.mode == 'dot' or self.mode == 'concat':
+        if self.mode == 'embedding' or self.mode == 'dot' or self.mode == 'concatenation':
             self.theta = keras.layers.Convolution2D(
                 filters=filters, kernel_size=(1, 1), strides=self.strides, padding=self.padding,
                 data_format=self.data_format, dilation_rate=self.dilation_rate, groups=self.convolution_groups,
@@ -142,6 +146,7 @@ class NonLocalBlock2D(keras.layers.Layer):
             inputs = self.dropout(inputs, training=training)
         x, y = inputs, inputs
         g = self.flatten(self.g(inputs))
+        # TODO: Must implement this correctly
         if self.mode == 'embedding' or self.mode == 'dot':
             x, y = self.theta(inputs), self.phi(inputs)
         elif self.mode == 'concatenation':
