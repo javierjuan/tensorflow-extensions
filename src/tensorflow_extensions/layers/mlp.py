@@ -93,6 +93,11 @@ class MultiLayerPerceptron(keras.layers.Layer):
             inputs = layer(inputs, training=training)
         return inputs
 
+    def compute_output_shape(self, input_shape):
+        for layer in self.mlp:
+            input_shape = layer.compute_output_shape(input_shape=input_shape)
+        return input_shape
+
     def get_config(self):
         config = super().get_config()
         config.update({

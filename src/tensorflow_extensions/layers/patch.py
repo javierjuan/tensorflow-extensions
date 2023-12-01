@@ -27,6 +27,10 @@ class PatchExtractor2D(keras.layers.Layer):
         return ops.image.extract_patches(image=inputs, size=self.size, strides=self.strides,
                                          dilation_rate=self.dilation_rate, padding=self.padding)
 
+    def compute_output_shape(self, input_shape):
+        return (input_shape[0], input_shape[1] // self.strides[0], input_shape[2] // self.strides[1],
+                self.strides[0] * self.strides[1] * input_shape[-1])
+
     def get_config(self):
         config = super().get_config()
         config.update({

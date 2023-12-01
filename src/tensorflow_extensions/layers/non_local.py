@@ -164,6 +164,9 @@ class NonLocalBlock2D(keras.layers.Layer):
             z = self.normalization(z)
         return z
 
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
     def get_config(self):
         config = super().get_config()
         config.update({

@@ -8,7 +8,6 @@ class InceptionBlock2D(keras.layers.Layer):
     def __init__(self,
                  filters,
                  strides=(1, 1),
-                 padding='same',
                  data_format=None,
                  dilation_rate=(1, 1),
                  convolution_groups=1,
@@ -44,7 +43,6 @@ class InceptionBlock2D(keras.layers.Layer):
         super().__init__(name=name, **kwargs)
         self.filters = filters
         self.strides = strides
-        self.padding = padding
         self.data_format = data_format
         self.dilation_rate = dilation_rate
         self.convolution_groups = convolution_groups
@@ -78,7 +76,7 @@ class InceptionBlock2D(keras.layers.Layer):
         self.supports_masking = True
 
         self.block_1x = ConvolutionBlock2D(
-            filters=filters, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
+            filters=filters, kernel_size=(1, 1), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -90,7 +88,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=None)
         self.block_3x = ConvolutionBlock2D(
-            filters=filters, kernel_size=(3, 3), strides=strides, padding=padding, data_format=data_format,
+            filters=filters, kernel_size=(3, 3), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -102,7 +100,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=None)
         self.block_5x0 = ConvolutionBlock2D(
-            filters=filters, kernel_size=(3, 3), strides=strides, padding=padding, data_format=data_format,
+            filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -114,7 +112,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=None)
         self.block_5x1 = ConvolutionBlock2D(
-            filters=filters, kernel_size=(3, 3), strides=strides, padding=padding, data_format=data_format,
+            filters=filters, kernel_size=(3, 3), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -125,9 +123,9 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=None)
-        self.max_pooling = keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding=padding)
+        self.max_pooling = keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding='same')
         self.block_max_pooling = ConvolutionBlock2D(
-            filters=filters, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
+            filters=filters, kernel_size=(1, 1), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -139,7 +137,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=None)
         self.block_compression = ConvolutionBlock2D(
-            filters=filters, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
+            filters=filters, kernel_size=(1, 1), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -166,12 +164,22 @@ class InceptionBlock2D(keras.layers.Layer):
         x = self.block_compression(x, training=training)
         return x
 
+    def compute_output_shape(self, input_shape):
+        output_shape_1 = self.block_1x.compute_output_shape(input_shape=input_shape)
+        output_shape_3 = self.block_3x.compute_output_shape(input_shape=input_shape)
+        output_shape_5 = self.block_5x0.compute_output_shape(input_shape=input_shape)
+        output_shape_5 = self.block_5x1.compute_output_shape(input_shape=output_shape_5)
+        output_shape_mp = self.max_pooling.compute_output_shape(input_shape=input_shape)
+        output_shape_mp = self.block_max_pooling.compute_output_shape(input_shape=output_shape_mp)
+        output_shape = [output_shape_1, output_shape_3, output_shape_5, output_shape_mp]
+        output_shape = self.concatenate.compute_output_shape(input_shape=output_shape)
+        return self.block_compression.compute_output_shape(input_shape=output_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({
             'filters': self.filters,
             'strides': self.strides,
-            'padding': self.padding,
             'data_format': self.data_format,
             'dilation_rate': self.dilation_rate,
             'convolution_groups': self.convolution_groups,

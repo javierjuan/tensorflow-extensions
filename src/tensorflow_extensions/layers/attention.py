@@ -1,6 +1,5 @@
 import keras_core as keras
 
-from .dense import DenseBlock
 from .pooling import ChannelMaxPooling, ChannelAveragePooling
 
 
@@ -8,6 +7,7 @@ from .pooling import ChannelMaxPooling, ChannelAveragePooling
 class ConvolutionalAttention2D(keras.layers.Layer):
     def __init__(self,
                  reduction_factor=8,
+                 kernel_size=(7, 7),
                  activation='mish',
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -17,26 +17,7 @@ class ConvolutionalAttention2D(keras.layers.Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 normalization='batch',
-                 momentum=0.99,
-                 epsilon=0.001,
-                 normalization_groups=32,
-                 center=True,
-                 scale=True,
-                 beta_initializer='zeros',
-                 gamma_initializer='ones',
-                 moving_mean_initializer='zeros',
-                 moving_variance_initializer='ones',
-                 beta_regularizer=None,
-                 gamma_regularizer=None,
-                 beta_constraint=None,
-                 gamma_constraint=None,
-                 axis=-1,
-                 kernel_size=(7, 7),
-                 strides=(1, 1),
-                 padding='same',
                  data_format=None,
-                 dilation_rate=(1, 1),
                  convolution_groups=1,
                  name=None,
                  **kwargs):
@@ -51,26 +32,8 @@ class ConvolutionalAttention2D(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
-        self.normalization = normalization
-        self.momentum = momentum
-        self.epsilon = epsilon
-        self.normalization_groups = normalization_groups
-        self.center = center
-        self.scale = scale
-        self.beta_initializer = beta_initializer
-        self.gamma_initializer = gamma_initializer
-        self.moving_mean_initializer = moving_mean_initializer
-        self.moving_variance_initializer = moving_variance_initializer
-        self.beta_regularizer = beta_regularizer
-        self.gamma_regularizer = gamma_regularizer
-        self.beta_constraint = beta_constraint
-        self.gamma_constraint = gamma_constraint
-        self.axis = axis
         self.kernel_size = kernel_size
-        self.strides = strides
-        self.padding = padding
         self.data_format = data_format
-        self.dilation_rate = dilation_rate
         self.convolution_groups = convolution_groups
         self.supports_masking = True
 
@@ -79,15 +42,9 @@ class ConvolutionalAttention2D(keras.layers.Layer):
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint, normalization=normalization, momentum=momentum, epsilon=epsilon,
-            normalization_groups=normalization_groups, center=center, scale=scale, beta_initializer=beta_initializer,
-            gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
-            beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
-            gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis)
+            bias_constraint=bias_constraint)
         self.spatial_attention_block = SpatialAttention2D(
-            kernel_size=kernel_size, strides=strides, padding=padding, data_format=data_format,
-            dilation_rate=dilation_rate, convolution_groups=convolution_groups, use_bias=use_bias,
+            kernel_size=kernel_size, data_format=data_format, convolution_groups=convolution_groups, use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
@@ -98,10 +55,15 @@ class ConvolutionalAttention2D(keras.layers.Layer):
         x = self.spatial_attention_block(x, training=training)
         return x
 
+    def compute_output_shape(self, input_shape):
+        output_shape = self.channel_attention_block.compute_output_shape(input_shape=input_shape)
+        return self.spatial_attention_block.compute_output_shape(input_shape=output_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({
             'reduction_factor': self.reduction_factor,
+            'kernel_size': self.kernel_size,
             'activation': self.activation,
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,
@@ -111,26 +73,7 @@ class ConvolutionalAttention2D(keras.layers.Layer):
             'activity_regularizer': self.activity_regularizer,
             'kernel_constraint': self.kernel_constraint,
             'bias_constraint': self.bias_constraint,
-            'normalization': self.normalization,
-            'momentum': self.momentum,
-            'epsilon': self.epsilon,
-            'normalization_groups': self.normalization_groups,
-            'center': self.center,
-            'scale': self.scale,
-            'beta_initializer': self.beta_initializer,
-            'gamma_initializer': self.gamma_initializer,
-            'moving_mean_initializer': self.moving_mean_initializer,
-            'moving_variance_initializer': self.moving_variance_initializer,
-            'beta_regularizer': self.beta_regularizer,
-            'gamma_regularizer': self.gamma_regularizer,
-            'beta_constraint': self.beta_constraint,
-            'gamma_constraint': self.gamma_constraint,
-            'axis': self.axis,
-            'kernel_size': self.kernel_size,
-            'strides': self.strides,
-            'padding': self.padding,
             'data_format': self.data_format,
-            'dilation_rate': self.dilation_rate,
             'convolution_groups': self.convolution_groups
         })
         return config
@@ -149,20 +92,6 @@ class ChannelAttention2D(keras.layers.Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 normalization='batch',
-                 momentum=0.99,
-                 epsilon=0.001,
-                 normalization_groups=32,
-                 center=True,
-                 scale=True,
-                 beta_initializer='zeros',
-                 gamma_initializer='ones',
-                 moving_mean_initializer='zeros',
-                 moving_variance_initializer='ones',
-                 beta_regularizer=None,
-                 gamma_regularizer=None,
-                 beta_constraint=None,
-                 gamma_constraint=None,
                  axis=-1,
                  name=None,
                  **kwargs):
@@ -177,21 +106,6 @@ class ChannelAttention2D(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
-        self.normalization = normalization
-        self.momentum = momentum
-        self.epsilon = epsilon
-        self.normalization_groups = normalization_groups
-        self.center = center
-        self.scale = scale
-        self.beta_initializer = beta_initializer
-        self.gamma_initializer = gamma_initializer
-        self.moving_mean_initializer = moving_mean_initializer
-        self.moving_variance_initializer = moving_variance_initializer
-        self.beta_regularizer = beta_regularizer
-        self.gamma_regularizer = gamma_regularizer
-        self.beta_constraint = beta_constraint
-        self.gamma_constraint = gamma_constraint
-        self.axis = axis
         self.supports_masking = True
 
         self.dense_mid = None
@@ -203,18 +117,12 @@ class ChannelAttention2D(keras.layers.Layer):
 
     def build(self, input_shape):
         input_channels = input_shape[-1]
-        self.dense_mid = DenseBlock(
+        self.dense_mid = keras.layers.Dense(
             units=input_channels * 2 // self.reduction_factor, activation=self.activation, use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
             kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
             activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
-            bias_constraint=self.bias_constraint, normalization=self.normalization, momentum=self.momentum,
-            epsilon=self.epsilon, normalization_groups=self.normalization_groups, center=self.center,
-            scale=self.scale, beta_initializer=self.beta_initializer, gamma_initializer=self.gamma_initializer,
-            moving_mean_initializer=self.moving_mean_initializer, gamma_regularizer=self.gamma_regularizer,
-            moving_variance_initializer=self.moving_variance_initializer, beta_regularizer=self.beta_regularizer,
-            beta_constraint=self.beta_constraint, gamma_constraint=self.gamma_constraint,
-            axis=self.axis, rate=None, seed=None)
+            bias_constraint=self.bias_constraint)
         self.dense_out = keras.layers.Dense(
             units=input_channels, activation='sigmoid', use_bias=self.use_bias,
             kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
@@ -233,6 +141,9 @@ class ChannelAttention2D(keras.layers.Layer):
         attention = self.reshape(attention)
         return inputs * attention
 
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -245,22 +156,7 @@ class ChannelAttention2D(keras.layers.Layer):
             'bias_regularizer': self.bias_regularizer,
             'activity_regularizer': self.activity_regularizer,
             'kernel_constraint': self.kernel_constraint,
-            'bias_constraint': self.bias_constraint,
-            'normalization': self.normalization,
-            'momentum': self.momentum,
-            'epsilon': self.epsilon,
-            'normalization_groups': self.normalization_groups,
-            'center': self.center,
-            'scale': self.scale,
-            'beta_initializer': self.beta_initializer,
-            'gamma_initializer': self.gamma_initializer,
-            'moving_mean_initializer': self.moving_mean_initializer,
-            'moving_variance_initializer': self.moving_variance_initializer,
-            'beta_regularizer': self.beta_regularizer,
-            'gamma_regularizer': self.gamma_regularizer,
-            'beta_constraint': self.beta_constraint,
-            'gamma_constraint': self.gamma_constraint,
-            'axis': self.axis
+            'bias_constraint': self.bias_constraint
         })
         return config
 
@@ -269,10 +165,7 @@ class ChannelAttention2D(keras.layers.Layer):
 class SpatialAttention2D(keras.layers.Layer):
     def __init__(self,
                  kernel_size=(7, 7),
-                 strides=(1, 1),
-                 padding='same',
                  data_format=None,
-                 dilation_rate=(1, 1),
                  convolution_groups=1,
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -287,10 +180,7 @@ class SpatialAttention2D(keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.kernel_size = kernel_size
-        self.strides = strides
-        self.padding = padding
         self.data_format = data_format
-        self.dilation_rate = dilation_rate
         self.convolution_groups = convolution_groups
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
@@ -303,8 +193,8 @@ class SpatialAttention2D(keras.layers.Layer):
         self.supports_masking = True
 
         self.convolution = keras.layers.Convolution2D(
-            filters=1, kernel_size=kernel_size, strides=strides, padding=padding, data_format=data_format,
-            dilation_rate=dilation_rate, groups=convolution_groups, activation='sigmoid', use_bias=use_bias,
+            filters=1, kernel_size=kernel_size, strides=(1, 1), padding='same', data_format=data_format,
+            dilation_rate=(1, 1), groups=convolution_groups, activation='sigmoid', use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
@@ -320,14 +210,14 @@ class SpatialAttention2D(keras.layers.Layer):
         attention = self.convolution(attention)
         return inputs * attention
 
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
     def get_config(self):
         config = super().get_config()
         config.update({
             'kernel_size': self.kernel_size,
-            'strides': self.strides,
-            'padding': self.padding,
             'data_format': self.data_format,
-            'dilation_rate': self.dilation_rate,
             'convolution_groups': self.convolution_groups,
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,

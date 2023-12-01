@@ -114,6 +114,9 @@ class ConvolutionBlock2D(keras.layers.Layer):
         x = self.activation(x)
         return x
 
+    def compute_output_shape(self, input_shape):
+        return self.convolution.compute_output_shape(input_shape=input_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({

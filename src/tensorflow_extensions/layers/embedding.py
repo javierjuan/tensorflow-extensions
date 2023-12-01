@@ -29,6 +29,12 @@ class FixedEmbedding(keras.layers.Layer):
         else:
             return ops.repeat(ops.expand_dims(self.embedding, axis=0), repeats=batch_size, axis=0)
 
+    def compute_output_shape(self, batch_size=None):
+        if batch_size is None:
+            return self.input_dim, self.output_dim
+        else:
+            return batch_size, self.input_dim, self.output_dim
+
     def get_config(self):
         config = super().get_config()
         config.update({

@@ -22,6 +22,9 @@ class ChannelAveragePooling(keras.layers.Layer):
         else:
             return ops.mean(inputs, axis=1, keepdims=self.keepdims)
 
+    def compute_output_shape(self, input_shape):
+        return input_shape[:-1] + (1,) if self.keepdims else input_shape[:-1]
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -51,6 +54,9 @@ class ChannelMaxPooling(keras.layers.Layer):
             return ops.max(inputs, axis=-1, keepdims=self.keepdims)
         else:
             return ops.max(inputs, axis=1, keepdims=self.keepdims)
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[:-1] + (1,) if self.keepdims else input_shape[:-1]
 
     def get_config(self):
         config = super().get_config()

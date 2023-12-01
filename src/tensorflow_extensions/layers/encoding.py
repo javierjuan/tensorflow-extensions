@@ -29,6 +29,9 @@ class PositionalEncoding1D(keras.layers.Layer):
         self.positions_mask = ops.cast(ops.arange(embedding_dimension) % 2, self.compute_dtype)
         super().build(input_shape=input_shape)
 
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
     def call(self, inputs, **kwargs):
         positions = ops.cast(ops.arange(inputs.shape[-2]), dtype=self.compute_dtype)
         angles = ops.expand_dims(positions, axis=1) * self.timescales
@@ -70,6 +73,9 @@ class PositionalEmbedding1D(keras.layers.Layer):
     def call(self, inputs, **kwargs):
         positions = ops.cast(ops.arange(inputs.shape[-2]), dtype=self.compute_dtype)
         return self.add([inputs, ops.broadcast_to(self.embedding(positions), shape=inputs.shape)])
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
 
     def get_config(self):
         config = super().get_config()
@@ -116,9 +122,12 @@ class PositionalEmbedding2D(keras.layers.Layer):
         rows_embedding = self.row_embedding(batch_size=inputs.shape[0])
         cols_embedding = self.col_embedding(batch_size=inputs.shape[0])
         embedding = self.cartesian_concatenation([rows_embedding, cols_embedding])
-        embedding = ops.reshape(embedding, [-1, embedding.shape[-3] * embedding.shape[-2], embedding.shape[-1]])
-        inputs = ops.reshape(inputs, [-1, inputs.shape[-3] * inputs.shape[-2], inputs.shape[-1]])
+        embedding = ops.reshape(embedding, [-1, embedding.shape[1] * embedding.shape[2], embedding.shape[3]])
+        inputs = ops.reshape(inputs, [-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
         return self.add([inputs, embedding])
+
+    def compute_output_shape(self, input_shape):
+        return input_shape[0], input_shape[1] * input_shape[2], input_shape[3]
 
     def get_config(self):
         config = super().get_config()
@@ -169,6 +178,10 @@ class TokenAndPositionEncoding(keras.layers.Layer):
         if self.dropout is not None:
             x = self.dropout(x, training=training)
         return x
+
+    def compute_output_shape(self, input_shape):
+        output_shape = self.token_embedding.compute_output_shape(input_shape=input_shape)
+        return self.positional_encoding.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -226,6 +239,10 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
             x = self.dropout(x, training=training)
         return x
 
+    def compute_output_shape(self, input_shape):
+        output_shape = self.token_embedding.compute_output_shape(input_shape=input_shape)
+        return self.positional_embedding.compute_output_shape(input_shape=output_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -250,7 +267,6 @@ class PatchEmbedding2D(keras.layers.Layer):
                  strides=None,
                  padding='same',
                  data_format=None,
-                 dilation_rate=(1, 1),
                  convolution_groups=1,
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
@@ -327,6 +343,17 @@ class PatchEmbedding2D(keras.layers.Layer):
             patches = self.convolution(inputs)
         patches = ops.reshape(patches, [-1, patches.shape[1] * patches.shape[2], patches.shape[3]])
         return self.add([patches, self.embedding(batch_size=patches.shape[0])])
+
+    def compute_output_shape(self, input_shape):
+        if self.mode in ('patch', 'crop'):
+            output_shape = self.patch_extractor.compute_output_shape(input_shape=input_shape)
+            output_shape = self.dense.compute_output_shape(input_shape=output_shape)
+        elif self.mode in ('convolution', 'conv'):
+            output_shape = self.convolution.compute_output_shape(input_shape=input_shape)
+        else:
+            raise ValueError(f'Unexpected value for `mode`: {self.mode}. Possible values are: `convolution`, `conv`, '
+                             f'`patch` or `crop`.')
+        return output_shape[0], output_shape[1] * output_shape[2], self.embedding_dimension
 
     def get_config(self):
         config = super().get_config()

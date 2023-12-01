@@ -83,6 +83,9 @@ class TransformerAttention(keras.layers.Layer):
                                                   training=training, use_causal_mask=use_causal_mask)
         return self.add([x, inputs])
 
+    def compute_output_shape(self, query_shape, value_shape):
+        return self.attention.compute_output_shape(query_shape=query_shape, value_shape=value_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -195,6 +198,10 @@ class TransformerFeedForward(keras.layers.Layer):
             x = self.dropout(x, training=training)
         return self.add([x, inputs])
 
+    def compute_output_shape(self, input_shape):
+        output_shape = self.dense_input.compute_output_shape(input_shape=input_shape)
+        return self.dense_output.compute_output_shape(input_shape=output_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -303,6 +310,10 @@ class TransformerEncoderLayer(keras.layers.Layer):
         x = self.self_attention(inputs, training=training)
         x = self.feed_forward(x, training=training)
         return x
+
+    def compute_output_shape(self, input_shape):
+        output_shape = self.self_attention.compute_output_shape(query_shape=input_shape, value_shape=input_shape)
+        return self.feed_forward.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -423,6 +434,12 @@ class TransformerDecoderLayer(keras.layers.Layer):
         x = self.feed_forward(x, training=training)
         return x
 
+    def compute_output_shape(self, input_shape):
+        input_shape, output_shape = input_shape
+        output_shape = self.self_attention.compute_output_shape(query_shape=output_shape, value_shape=output_shape)
+        output_shape = self.cross_attention.compute_output_shape(query_shape=output_shape, value_shape=input_shape)
+        return self.feed_forward.compute_output_shape(input_shape=output_shape)
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -532,6 +549,11 @@ class TransformerEncoder(keras.layers.Layer):
             inputs = layer(inputs, training=training)
         return inputs
 
+    def compute_output_shape(self, input_shape):
+        for layer in self.encoder:
+            input_shape = layer.compute_output_shape(input_shape=input_shape)
+        return input_shape
+
     def get_config(self):
         config = super().get_config()
         config.update({
@@ -640,6 +662,12 @@ class TransformerDecoder(keras.layers.Layer):
         for layer in self.decoder:
             inputs = layer(inputs, context=context, training=training)
         return inputs
+
+    def compute_output_shape(self, input_shape):
+        input_shape, output_shape = input_shape
+        for layer in self.decoder:
+            output_shape = layer.compute_output_shape(input_shape=[input_shape, output_shape])
+        return output_shape
 
     def get_config(self):
         config = super().get_config()
@@ -760,6 +788,11 @@ class Transformer(keras.layers.Layer):
         inputs = self.encoder(inputs, training=training)
         outputs = self.decoder(outputs, context=inputs, training=training)
         return outputs
+
+    def compute_output_shape(self, input_shape):
+        input_shape, output_shape = input_shape
+        input_shape = self.encoder.compute_output_shape(input_shape=input_shape)
+        return self.decoder.compute_output_shape(input_shape=[input_shape, output_shape])
 
     def get_config(self):
         config = super().get_config()
