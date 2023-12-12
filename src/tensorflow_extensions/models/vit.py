@@ -1,7 +1,7 @@
 import keras_core as keras
 
 from .model import Model
-from ..layers.dense import DenseBlock
+from ..layers.mlp import MultiLayerPerceptron
 from ..layers.encoding import PatchEmbedding2D
 from ..layers.transformer import TransformerEncoder
 
@@ -14,7 +14,7 @@ class ViT(Model):
                  embedding_dimension,
                  encoder_units,
                  encoder_num_heads,
-                 dense_units,
+                 mlp_units,
                  use_bias=True,
                  output_shape=None,
                  attention_axes=None,
@@ -78,8 +78,8 @@ class ViT(Model):
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
         self.normalization = keras.layers.LayerNormalization(epsilon=epsilon)
         self.flatten = keras.layers.Flatten()
-        self.dense_blocks = [DenseBlock(
-            units=_dense_units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
+        self.mlp = MultiLayerPerceptron(
+            units=mlp_units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, normalization=normalization, momentum=momentum, epsilon=epsilon,
@@ -87,7 +87,7 @@ class ViT(Model):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             moving_variance_initializer=moving_variance_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=rate, seed=seed) for _dense_units in dense_units]
+            axis=axis, rate=rate, seed=seed)
         self.posteriors = keras.layers.Dense(
             units=num_classes, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -99,6 +99,5 @@ class ViT(Model):
         x = self.encoder(x, training=training)
         x = self.normalization(x)
         x = self.flatten(x)
-        for dense_block in self.dense_blocks:
-            x = dense_block(x, training=training)
+        x = self.mlp(x, training=training)
         return self.posteriors(x)
