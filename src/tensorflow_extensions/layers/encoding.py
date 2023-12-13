@@ -298,14 +298,14 @@ class PatchEmbedding2D(keras.layers.Layer):
         self.bias_constraint = bias_constraint
         self.supports_masking = True
 
-        if mode in ('patch', 'crop'):
+        if mode == 'patch':
             self.patch_extractor = PatchExtractor2D(size=size, strides=strides, padding=padding)
             self.dense = keras.layers.Dense(
                 units=embedding_dimension, activation=None, use_bias=use_bias, kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer,
                 bias_regularizer=bias_regularizer, activity_regularizer=activity_regularizer,
                 kernel_constraint=kernel_constraint, bias_constraint=bias_constraint)
-        elif mode in ('convolution', 'conv'):
+        elif mode == 'convolution':
             self.convolution = keras.layers.Convolution2D(
                 filters=embedding_dimension, kernel_size=size, strides=strides, padding=padding,
                 data_format=data_format, groups=convolution_groups, activation=None, use_bias=use_bias,
@@ -314,27 +314,21 @@ class PatchEmbedding2D(keras.layers.Layer):
                 activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
                 bias_constraint=bias_constraint)
         else:
-            raise ValueError(f'Unexpected value for `mode`: {mode}. Possible values are: `convolution`, `conv`, '
-                             f'`patch` or `crop`.')
+            raise ValueError(f'Unexpected value for `mode`: {mode}. Supported values are: `convolution` or `patch`.')
 
     def call(self, inputs, **kwargs):
-        if self.mode in ('patch', 'crop'):
+        if self.mode == 'patch':
             patches = self.patch_extractor(inputs)
-            patches = self.dense(patches)
+            return self.dense(patches)
         else:
-            patches = self.convolution(inputs)
-        return patches
+            return self.convolution(inputs)
 
     def compute_output_shape(self, input_shape):
-        if self.mode in ('patch', 'crop'):
+        if self.mode == 'patch':
             output_shape = self.patch_extractor.compute_output_shape(input_shape=input_shape)
-            output_shape = self.dense.compute_output_shape(input_shape=output_shape)
-        elif self.mode in ('convolution', 'conv'):
-            output_shape = self.convolution.compute_output_shape(input_shape=input_shape)
+            return self.dense.compute_output_shape(input_shape=output_shape)
         else:
-            raise ValueError(f'Unexpected value for `mode`: {self.mode}. Possible values are: `convolution`, `conv`, '
-                             f'`patch` or `crop`.')
-        return output_shape
+            return self.convolution.compute_output_shape(input_shape=input_shape)
 
     def get_config(self):
         config = super().get_config()
