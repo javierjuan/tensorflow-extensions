@@ -37,6 +37,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
         super().__init__(name=name, **kwargs)
 
         units = units if isinstance(units, (tuple, list)) else [units]
+        activation = activation if isinstance(activation, (tuple, list)) else [activation] * len(units)
         normalization = normalization if isinstance(normalization, (tuple, list)) else [normalization] * len(units)
         if len(units) != len(normalization):
             raise ValueError(f'Number of `units` must match with number of `normalization`')
