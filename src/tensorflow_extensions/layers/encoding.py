@@ -276,9 +276,6 @@ class PatchEmbedding2D(keras.layers.Layer):
                  activity_regularizer=None,
                  kernel_constraint=None,
                  bias_constraint=None,
-                 embeddings_initializer='uniform',
-                 embeddings_regularizer=None,
-                 embeddings_constraint=None,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
@@ -299,13 +296,8 @@ class PatchEmbedding2D(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
-        self.embeddings_initializer = embeddings_initializer
-        self.embeddings_regularizer = embeddings_regularizer
-        self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self.class_token = self.add_weight(shape=[1, 1, embedding_dimension], initializer='glorot_uniform',
-                                           trainable=True, name='class_token')
         if mode in ('patch', 'crop'):
             self.patch_extractor = PatchExtractor2D(size=size, strides=strides, padding=padding)
             self.dense = keras.layers.Dense(
@@ -324,25 +316,14 @@ class PatchEmbedding2D(keras.layers.Layer):
         else:
             raise ValueError(f'Unexpected value for `mode`: {mode}. Possible values are: `convolution`, `conv`, '
                              f'`patch` or `crop`.')
-        self.add = keras.layers.Add()
-        self.embedding = None
-
-    def build(self, input_shape):
-        self.embedding = FixedEmbedding(
-            input_dim=(input_shape[-2] // self.strides[0]) * (input_shape[-3] // self.strides[1]),
-            output_dim=self.embedding_dimension, embeddings_initializer=self.embeddings_initializer,
-            embeddings_regularizer=self.embeddings_regularizer, embeddings_constraint=self.embeddings_constraint)
-        super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        # TODO: Class Token
         if self.mode in ('patch', 'crop'):
             patches = self.patch_extractor(inputs)
             patches = self.dense(patches)
         else:
             patches = self.convolution(inputs)
-        patches = ops.reshape(patches, [-1, patches.shape[1] * patches.shape[2], patches.shape[3]])
-        return self.add([patches, self.embedding(batch_size=patches.shape[0])])
+        return patches
 
     def compute_output_shape(self, input_shape):
         if self.mode in ('patch', 'crop'):
@@ -353,7 +334,100 @@ class PatchEmbedding2D(keras.layers.Layer):
         else:
             raise ValueError(f'Unexpected value for `mode`: {self.mode}. Possible values are: `convolution`, `conv`, '
                              f'`patch` or `crop`.')
-        return output_shape[0], output_shape[1] * output_shape[2], self.embedding_dimension
+        return output_shape
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            'size': self.size,
+            'embedding_dimension': self.embedding_dimension,
+            'mode': self.mode,
+            'strides': self.strides,
+            'padding': self.padding,
+            'data_format': self.data_format,
+            'convolution_groups': self.convolution_groups,
+            'use_bias': self.use_bias,
+            'kernel_initializer': self.kernel_initializer,
+            'bias_initializer': self.bias_initializer,
+            'kernel_regularizer': self.kernel_regularizer,
+            'bias_regularizer': self.bias_regularizer,
+            'activity_regularizer': self.activity_regularizer,
+            'kernel_constraint': self.kernel_constraint,
+            'bias_constraint': self.bias_constraint
+        })
+        return config
+
+
+@keras.saving.register_keras_serializable(package='tfe.layers')
+class PatchAndPositionEmbedding2D(keras.layers.Layer):
+    def __init__(self,
+                 size,
+                 embedding_dimension,
+                 mode='convolution',
+                 strides=None,
+                 padding='same',
+                 data_format=None,
+                 convolution_groups=1,
+                 use_bias=True,
+                 kernel_initializer='glorot_uniform',
+                 bias_initializer='zeros',
+                 kernel_regularizer=None,
+                 bias_regularizer=None,
+                 activity_regularizer=None,
+                 kernel_constraint=None,
+                 bias_constraint=None,
+                 embeddings_initializer='uniform',
+                 embeddings_regularizer=None,
+                 embeddings_constraint=None,
+                 rate=None,
+                 seed=None,
+                 name=None,
+                 **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.size = size
+        self.embedding_dimension = embedding_dimension
+        self.mode = mode
+        self.strides = strides
+        self.padding = padding
+        self.data_format = data_format
+        self.convolution_groups = convolution_groups
+        self.use_bias = use_bias
+        self.kernel_initializer = kernel_initializer
+        self.bias_initializer = bias_initializer
+        self.kernel_regularizer = kernel_regularizer
+        self.bias_regularizer = bias_regularizer
+        self.activity_regularizer = activity_regularizer
+        self.kernel_constraint = kernel_constraint
+        self.bias_constraint = bias_constraint
+        self.embeddings_initializer = embeddings_initializer
+        self.embeddings_regularizer = embeddings_regularizer
+        self.embeddings_constraint = embeddings_constraint
+        self.rate = rate
+        self.seed = seed
+        self.supports_masking = True
+
+        self.patch_embedding = PatchEmbedding2D(
+            size=size, embedding_dimension=embedding_dimension, mode=mode, strides=strides, padding=padding,
+            data_format=data_format, convolution_groups=convolution_groups, use_bias=use_bias,
+            kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint)
+        self.positional_embedding = PositionalEmbedding2D(
+            embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
+            embeddings_constraint=embeddings_constraint)
+        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+
+    def call(self, inputs, training=False, **kwargs):
+        x = self.patch_embedding(inputs)
+        x = self.positional_embedding(x)
+        if self.dropout is not None:
+            x = self.dropout(x, training=training)
+        return x
+
+    def compute_output_shape(self, input_shape):
+        output_shape = self.patch_embedding.compute_output_shape(input_shape=input_shape)
+        return self.positional_embedding.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -375,6 +449,8 @@ class PatchEmbedding2D(keras.layers.Layer):
             'bias_constraint': self.bias_constraint,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
-            'embeddings_constraint': self.embeddings_constraint
+            'embeddings_constraint': self.embeddings_constraint,
+            'rate': self.rate,
+            'seed': self.seed
         })
         return config
