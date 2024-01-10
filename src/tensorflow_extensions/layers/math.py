@@ -61,8 +61,7 @@ class CartesianConcatenation2D(keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
 
-    def call(self, inputs, **kwargs):
-        x, y = inputs
+    def call(self, x, y, **kwargs):
         tile_x = ops.tile(ops.expand_dims(x, axis=2), repeats=[1, 1, y.shape[1], 1])
         tile_y = ops.tile(ops.expand_dims(y, axis=1), repeats=[1, x.shape[1], 1, 1])
         return ops.concatenate([tile_x, tile_y], axis=-1)

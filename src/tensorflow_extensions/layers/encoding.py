@@ -121,7 +121,7 @@ class PositionalEmbedding2D(keras.layers.Layer):
     def call(self, inputs, **kwargs):
         rows_embedding = self.row_embedding(batch_size=inputs.shape[0])
         cols_embedding = self.col_embedding(batch_size=inputs.shape[0])
-        embedding = self.cartesian_concatenation([rows_embedding, cols_embedding])
+        embedding = self.cartesian_concatenation(rows_embedding, cols_embedding)
         embedding = ops.reshape(embedding, [-1, embedding.shape[1] * embedding.shape[2], embedding.shape[3]])
         inputs = ops.reshape(inputs, [-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
         return self.add([inputs, embedding])
