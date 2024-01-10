@@ -479,7 +479,6 @@ class TransformerEncoder(keras.layers.Layer):
     def __init__(self,
                  units,
                  num_heads,
-                 residual_connection=False,
                  use_bias=True,
                  output_shape=None,
                  attention_axes=None,
@@ -514,7 +513,6 @@ class TransformerEncoder(keras.layers.Layer):
 
         self.units = units
         self.num_heads = num_heads
-        self.residual_connection = residual_connection
         self.use_bias = use_bias
         self.output_shape = output_shape
         self.attention_axes = attention_axes
@@ -552,8 +550,7 @@ class TransformerEncoder(keras.layers.Layer):
 
     def call(self, inputs, training=False, **kwargs):
         for layer in self.encoder:
-            x = layer(inputs, training=training)
-            inputs = inputs + x if self.residual_connection else inputs
+            inputs = layer(inputs, training=training)
         return inputs
 
     def compute_output_shape(self, input_shape):
@@ -566,7 +563,6 @@ class TransformerEncoder(keras.layers.Layer):
         config.update({
             'units': self.units,
             'num_heads': self.num_heads,
-            'residual_connection': self.residual_connection,
             'use_bias': self.use_bias,
             'output_shape': self.output_shape,
             'attention_axes': self.attention_axes,
