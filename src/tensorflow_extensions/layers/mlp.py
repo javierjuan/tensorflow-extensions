@@ -49,7 +49,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
             raise ValueError(f'Number of `units` must match with number of `rate`')
 
         self.units = units
-        self._activation = activation
+        self.activation = activation
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
@@ -58,7 +58,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
-        self._normalization = normalization
+        self.normalization = normalization
         self.momentum = momentum
         self.epsilon = epsilon
         self.normalization_groups = normalization_groups
@@ -103,7 +103,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
         config = super().get_config()
         config.update({
             'units': self.units,
-            'activation': self._activation,
+            'activation': self.activation,
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,
             'bias_initializer': self.bias_initializer,
@@ -112,7 +112,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
             'activity_regularizer': self.activity_regularizer,
             'kernel_constraint': self.kernel_constraint,
             'bias_constraint': self.bias_constraint,
-            'normalization': self._normalization,
+            'normalization': self.normalization,
             'momentum': self.momentum,
             'epsilon': self.epsilon,
             'normalization_groups': self.normalization_groups,

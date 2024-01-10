@@ -106,6 +106,7 @@ class ChannelAttention2D(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
+        self.axis = axis
         self.supports_masking = True
 
         self.dense_mid = None
@@ -156,7 +157,8 @@ class ChannelAttention2D(keras.layers.Layer):
             'bias_regularizer': self.bias_regularizer,
             'activity_regularizer': self.activity_regularizer,
             'kernel_constraint': self.kernel_constraint,
-            'bias_constraint': self.bias_constraint
+            'bias_constraint': self.bias_constraint,
+            'axis': self.axis
         })
         return config
 
@@ -190,6 +192,7 @@ class SpatialAttention2D(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
+        self.axis = axis
         self.supports_masking = True
 
         self.convolution = keras.layers.Convolution2D(
@@ -226,6 +229,7 @@ class SpatialAttention2D(keras.layers.Layer):
             'bias_regularizer': self.bias_regularizer,
             'activity_regularizer': self.activity_regularizer,
             'kernel_constraint': self.kernel_constraint,
-            'bias_constraint': self.bias_constraint
+            'bias_constraint': self.bias_constraint,
+            'axis': self.axis
         })
         return config
