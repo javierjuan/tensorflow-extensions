@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 from .model import Model
 from ..layers.encoding import TokenAndPositionEncoding, TokenAndPositionEmbedding

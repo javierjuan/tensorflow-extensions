@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 from .dice import dice_score
 from .utils import initialize_loss, finalize_loss

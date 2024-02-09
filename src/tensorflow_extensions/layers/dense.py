@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
@@ -16,7 +16,7 @@ class DenseBlock(keras.layers.Layer):
                  bias_constraint=None,
                  normalization='batch',
                  momentum=0.99,
-                 epsilon=0.001,
+                 epsilon=1e-3,
                  normalization_groups=32,
                  center=True,
                  scale=True,
@@ -44,7 +44,7 @@ class DenseBlock(keras.layers.Layer):
         self.activity_regularizer = activity_regularizer
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
-        self._normalization = normalization
+        self.normalization = normalization
         self.momentum = momentum
         self.epsilon = epsilon
         self.normalization_groups = normalization_groups
@@ -69,25 +69,25 @@ class DenseBlock(keras.layers.Layer):
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
         if normalization == 'batch':
-            self.normalization = keras.layers.BatchNormalization(
+            self.normalization_ = keras.layers.BatchNormalization(
                 axis=axis, momentum=momentum, epsilon=epsilon, center=center, scale=scale,
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
                 moving_mean_initializer=moving_mean_initializer, beta_regularizer=beta_regularizer,
                 moving_variance_initializer=moving_variance_initializer, gamma_regularizer=gamma_regularizer,
                 beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         elif normalization == 'layer':
-            self.normalization = keras.layers.LayerNormalization(
+            self.normalization_ = keras.layers.LayerNormalization(
                 axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
                 gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, beta_constraint=beta_constraint,
                 gamma_regularizer=gamma_regularizer, gamma_constraint=gamma_constraint)
         elif normalization == 'group':
-            self.normalization = keras.layers.GroupNormalization(
+            self.normalization_ = keras.layers.GroupNormalization(
                 groups=normalization_groups, axis=axis, epsilon=epsilon, center=center, scale=scale,
                 beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_constraint=beta_constraint,
                 beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
                 gamma_constraint=gamma_constraint)
         else:
-            self.normalization = None
+            self.normalization_ = None
         self.activation = keras.layers.Activation(activation=activation)
         self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
@@ -95,8 +95,8 @@ class DenseBlock(keras.layers.Layer):
         if self.dropout is not None:
             inputs = self.dropout(inputs, training=training)
         x = self.dense(inputs)
-        if self.normalization is not None:
-            x = self.normalization(x, training=training)
+        if self.normalization_ is not None:
+            x = self.normalization_(x, training=training)
         x = self.activation(x)
         return x
 
@@ -116,7 +116,7 @@ class DenseBlock(keras.layers.Layer):
             'activity_regularizer': self.activity_regularizer,
             'kernel_constraint': self.kernel_constraint,
             'bias_constraint': self.bias_constraint,
-            'normalization': self._normalization,
+            'normalization': self.normalization,
             'momentum': self.momentum,
             'epsilon': self.epsilon,
             'normalization_groups': self.normalization_groups,

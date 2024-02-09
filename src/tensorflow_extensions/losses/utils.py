@@ -1,6 +1,6 @@
-import keras_core as keras
+import keras
 import tensorflow as tf
-from keras_core import ops
+from keras import ops
 
 
 @tf.function

@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 from .attention import ConvolutionalAttention2D
 
@@ -24,7 +24,7 @@ class ResidualBlock2D(keras.layers.Layer):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        self.layer = layer if isinstance(layer, keras.layers.Layer) else keras.layers.deserialize(layer)
+        self.layer = layer
         self.attention = attention
         self.reduction_factor = reduction_factor
         self.kernel_size = kernel_size
@@ -70,10 +70,15 @@ class ResidualBlock2D(keras.layers.Layer):
         output_shape = self.layer.compute_output_shape(input_shape=input_shape)
         return self.attention_block.compute_output_shape(input_shape=output_shape)
 
+    @classmethod
+    def from_config(cls, config):
+        config['layer'] = keras.layers.deserialize(config['layer'])
+        return cls(**config)
+
     def get_config(self):
         config = super().get_config()
         config.update({
-            'layer': keras.layers.serialize(self.layer),
+            'layer': self.layer,
             'attention': self.attention,
             'reduction_factor': self.reduction_factor,
             'kernel_size': self.kernel_size,

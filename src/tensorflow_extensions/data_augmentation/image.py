@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 import keras_cv as kcv
 
 

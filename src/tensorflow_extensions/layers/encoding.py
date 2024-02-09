@@ -1,8 +1,7 @@
-import keras_core as keras
-from keras_core import ops
+import keras
+from keras import ops
 
 from .embedding import FixedEmbedding
-from .math import CartesianConcatenation2D
 from .patch import PatchExtractor2D
 
 
@@ -64,6 +63,9 @@ class PositionalEmbedding1D(keras.layers.Layer):
         self.add = keras.layers.Add()
 
     def build(self, input_shape):
+        # TODO: This is possibly incorrect because `input_dim` cannot be extrapolated only from the first sample used in
+        #  the training process (which is the one used to run the `build()` method. If so, we are assuming that there
+        #  are not ragged tensors, and hence we can replace this `Embedding` with a `FixedEmbedding` layer
         self.embedding = keras.layers.Embedding(
             input_dim=input_shape[-2], output_dim=input_shape[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
@@ -101,29 +103,19 @@ class PositionalEmbedding2D(keras.layers.Layer):
         self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self.row_embedding = None
-        self.col_embedding = None
-        self.cartesian_concatenation = CartesianConcatenation2D()
+        self.embedding = None
         self.add = keras.layers.Add()
 
     def build(self, input_shape):
-        embedding_dimension = input_shape[-1] // 2
-        self.row_embedding = FixedEmbedding(
-            input_dim=input_shape[-3], output_dim=embedding_dimension,
-            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
-            embeddings_constraint=self.embeddings_constraint)
-        self.col_embedding = FixedEmbedding(
-            input_dim=input_shape[-2], output_dim=embedding_dimension,
+        self.embedding = FixedEmbedding(
+            input_dim=input_shape[-2] * input_shape[-3], output_dim=input_shape[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        rows_embedding = self.row_embedding(batch_size=inputs.shape[0])
-        cols_embedding = self.col_embedding(batch_size=inputs.shape[0])
-        embedding = self.cartesian_concatenation(rows_embedding, cols_embedding)
-        embedding = ops.reshape(embedding, [-1, embedding.shape[1] * embedding.shape[2], embedding.shape[3]])
-        inputs = ops.reshape(inputs, [-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
+        embedding = self.embedding(batch_size=inputs.shape[0])
+        inputs = ops.reshape(inputs, new_shape=[-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
         return self.add([inputs, embedding])
 
     def compute_output_shape(self, input_shape):

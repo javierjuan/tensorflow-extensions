@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
@@ -22,7 +22,7 @@ class ConvolutionBlock2D(keras.layers.Layer):
                  bias_constraint=None,
                  normalization='batch',
                  momentum=0.99,
-                 epsilon=0.001,
+                 epsilon=1e-3,
                  normalization_groups=32,
                  center=True,
                  scale=True,

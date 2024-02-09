@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 from .dense import DenseBlock
 
@@ -17,7 +17,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
                  bias_constraint=None,
                  normalization='batch',
                  momentum=0.99,
-                 epsilon=0.001,
+                 epsilon=1e-3,
                  normalization_groups=32,
                  center=True,
                  scale=True,

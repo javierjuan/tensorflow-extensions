@@ -1,7 +1,7 @@
 import inspect
 
 import tensorflow as tf
-from keras_core import ops
+from keras import ops
 
 from tensorflow_extensions import layers
 

@@ -1,5 +1,5 @@
-import keras_core as keras
-from keras_core import ops
+import keras
+from keras import ops
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
@@ -21,7 +21,7 @@ class FixedEmbedding(keras.layers.Layer):
 
         self.embedding = self.add_weight(
             shape=(input_dim, output_dim), initializer=embeddings_initializer, regularizer=embeddings_regularizer,
-            constraint=embeddings_constraint, name='fixed_embedding')
+            constraint=embeddings_constraint, trainable=True, name='fixed_embedding')
 
     def call(self, batch_size=None, **kwargs):
         if batch_size is None:

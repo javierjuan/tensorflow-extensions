@@ -1,5 +1,5 @@
-import keras_core as keras
-from keras_core import ops
+import keras
+from keras import ops
 
 
 @keras.saving.register_keras_serializable(package='tfe.metrics')

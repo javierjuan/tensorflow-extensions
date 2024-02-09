@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 from .pooling import ChannelMaxPooling, ChannelAveragePooling
 
