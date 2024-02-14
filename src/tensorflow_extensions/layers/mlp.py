@@ -86,7 +86,7 @@ class MultiLayerPerceptron(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             gamma_regularizer=gamma_regularizer, moving_variance_initializer=moving_variance_initializer,
             beta_regularizer=beta_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=_rate, seed=None)
+            axis=axis, rate=_rate, seed=seed)
             for _units, _normalization, _activation, _rate in zip(units, normalization, activation, rate)]
 
     def call(self, inputs, training=False, **kwargs):
