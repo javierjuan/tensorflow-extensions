@@ -86,7 +86,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=None, seed=None)
+            axis=axis, rate=None, seed=seed)
         self.block_3x = ConvolutionBlock2D(
             filters=filters, kernel_size=(3, 3), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
@@ -98,7 +98,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=None, seed=None)
+            axis=axis, rate=None, seed=seed)
         self.block_5x0 = ConvolutionBlock2D(
             filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
@@ -110,7 +110,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=None, seed=None)
+            axis=axis, rate=None, seed=seed)
         self.block_5x1 = ConvolutionBlock2D(
             filters=filters, kernel_size=(3, 3), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
@@ -122,7 +122,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=None, seed=None)
+            axis=axis, rate=None, seed=seed)
         self.max_pooling = keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding='same')
         self.block_max_pooling = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=(1, 1), padding='same', data_format=data_format,
@@ -135,7 +135,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=None, seed=None)
+            axis=axis, rate=None, seed=seed)
         self.block_compression = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
@@ -147,7 +147,7 @@ class InceptionBlock2D(keras.layers.Layer):
             gamma_initializer=gamma_initializer, moving_mean_initializer=moving_mean_initializer,
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
-            axis=axis, rate=None, seed=None)
+            axis=axis, rate=None, seed=seed)
         self.concatenate = keras.layers.Concatenate(axis=axis)
         self.dropout = keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
 
