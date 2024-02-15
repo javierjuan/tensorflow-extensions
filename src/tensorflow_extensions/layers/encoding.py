@@ -115,7 +115,7 @@ class PositionalEmbedding2D(keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         embedding = self.embedding(batch_size=inputs.shape[0])
-        inputs = ops.reshape(inputs, new_shape=[-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
+        inputs = ops.reshape(inputs, newshape=[-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
         return self.add([inputs, embedding])
 
     def compute_output_shape(self, input_shape):
