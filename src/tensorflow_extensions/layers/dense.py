@@ -35,7 +35,7 @@ class DenseBlock(keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.units = units
-        self._activation = activation
+        self.activation = activation
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
@@ -88,7 +88,7 @@ class DenseBlock(keras.layers.Layer):
                 gamma_constraint=gamma_constraint)
         else:
             self.normalization_ = None
-        self.activation = keras.layers.Activation(activation=activation)
+        self.activation_ = keras.layers.Activation(activation=activation)
         self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
@@ -97,7 +97,7 @@ class DenseBlock(keras.layers.Layer):
         x = self.dense(inputs)
         if self.normalization_ is not None:
             x = self.normalization_(x, training=training)
-        x = self.activation(x)
+        x = self.activation_(x)
         return x
 
     def compute_output_shape(self, input_shape):
@@ -107,7 +107,7 @@ class DenseBlock(keras.layers.Layer):
         config = super().get_config()
         config.update({
             'units': self.units,
-            'activation': self._activation,
+            'activation': self.activation,
             'use_bias': self.use_bias,
             'kernel_initializer': self.kernel_initializer,
             'bias_initializer': self.bias_initializer,
