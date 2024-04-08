@@ -1,6 +1,6 @@
 import keras
 
-from .pooling import ChannelMaxPooling, ChannelAveragePooling
+from . import MultiLayerPerceptron, ChannelMaxPooling, ChannelAveragePooling
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
@@ -109,8 +109,7 @@ class ChannelAttention2D(keras.layers.Layer):
         self.axis = axis
         self.supports_masking = True
 
-        self.dense_mid = None
-        self.dense_out = None
+        self.mlp = None
         self.reshape = None
         self.global_max_pooling = keras.layers.GlobalMaxPooling2D()
         self.global_average_pooling = keras.layers.GlobalAveragePooling2D()
@@ -118,18 +117,12 @@ class ChannelAttention2D(keras.layers.Layer):
 
     def build(self, input_shape):
         input_channels = input_shape[-1]
-        self.dense_mid = keras.layers.Dense(
-            units=input_channels * 2 // self.reduction_factor, activation=self.activation, use_bias=self.use_bias,
-            kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
-            kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
-            activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
-            bias_constraint=self.bias_constraint)
-        self.dense_out = keras.layers.Dense(
-            units=input_channels, activation='sigmoid', use_bias=self.use_bias,
-            kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
-            kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
-            activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
-            bias_constraint=self.bias_constraint)
+        self.mlp = MultiLayerPerceptron(
+            units=[input_channels * 2 // self.reduction_factor, input_channels], normalization=None,
+            activation=[self.activation, 'sigmoid'], use_bias=self.use_bias, kernel_initializer=self.kernel_initializer,
+            bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
+            bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
+            kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
         self.reshape = keras.layers.Reshape(target_shape=(1, 1, input_channels))
         super().build(input_shape=input_shape)
 
@@ -137,8 +130,7 @@ class ChannelAttention2D(keras.layers.Layer):
         x = self.global_average_pooling(inputs)
         y = self.global_max_pooling(inputs)
         z = self.concatenate([x, y])
-        x = self.dense_mid(z, training=training)
-        attention = self.dense_out(x)
+        attention = self.mlp(z, training=training)
         attention = self.reshape(attention)
         return inputs * attention
 
