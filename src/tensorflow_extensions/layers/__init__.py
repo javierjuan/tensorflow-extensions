@@ -3,6 +3,7 @@ from .convolution import *
 from .dense import *
 from .embedding import *
 from .encoding import *
+from .feedforward import *
 from .inception import *
 from .math import *
 from .mlp import *
