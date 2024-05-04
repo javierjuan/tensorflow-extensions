@@ -1,4 +1,4 @@
-import keras_core as keras
+import keras
 
 from ..layers.encoding import PatchAndPositionEmbedding2D
 from ..layers.mlp import MultiLayerPerceptron
@@ -50,6 +50,7 @@ class ViT(keras.Model):
                  convolution_groups=1,
                  rate=None,
                  seed=None,
+                 adapted=False,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
@@ -95,10 +96,9 @@ class ViT(keras.Model):
         self.convolution_groups = convolution_groups
         self.rate = rate
         self.seed = seed
+        self.adapted = True
 
-        self.is_adapted = False
-
-        self.standardization = keras.layers.Normalization(axis=-1, dtype='float32')
+        self.rescaling = keras.layers.Rescaling(scale=1.0 / 255)
         self.patch_embedding = PatchAndPositionEmbedding2D(
             size=patch_size, embedding_dimension=embedding_dimension, mode=mode, strides=strides, padding=padding,
             data_format=data_format, convolution_groups=convolution_groups, use_bias=use_bias,
@@ -117,7 +117,10 @@ class ViT(keras.Model):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.normalization = keras.layers.LayerNormalization(epsilon=epsilon)
+        self.normalization_ = keras.layers.LayerNormalization(
+            epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
+            gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
+            beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
         self.pooling = keras.layers.GlobalAveragePooling1D()
         self.mlp = MultiLayerPerceptron(
             units=mlp_units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
@@ -135,20 +138,20 @@ class ViT(keras.Model):
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint, dtype='float32')
 
-    def adapt(self, data):
-        self.standardization.adapt(data=data)
-        self.is_adapted = True
+    # def adapt(self, data):
+    #     self.standardization.adapt(data=data)
+    #     self.adapted = True
 
     def build(self, input_shape):
-        if not self.is_adapted:
+        if not self.adapted:
             raise ValueError('Model must be adapted before calling `build` or `call` methods.')
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
-        x = self.standardization(inputs)
-        x = self.patch_embedding(x)
+        x = self.rescaling(inputs)
+        x = self.patch_embedding(x, training=training)
         x = self.encoder(x, training=training)
-        x = self.normalization(x)
+        x = self.normalization_(x)
         x = self.pooling(x)
         x = self.mlp(x, training=training)
         return self.posteriors(x)
@@ -197,6 +200,7 @@ class ViT(keras.Model):
             'data_format': self.data_format,
             'convolution_groups': self.convolution_groups,
             'rate': self.rate,
-            'seed': self.seed
+            'seed': self.seed,
+            'adapted': self.adapted
         })
         return config

@@ -2,7 +2,7 @@ import keras
 import tensorflow as tf
 from keras import ops
 
-from tensorflow_extensions import layers
+import layers
 
 
 def test_train_convolutional_classification_model():
@@ -11,15 +11,15 @@ def test_train_convolutional_classification_model():
     y = ops.one_hot(y, num_classes=10)
     model = keras.Sequential([
         keras.Input(shape=(240, 240, 3)),
-        layers.ResidualBlock2D(layers.ConvolutionBlock2D(filters=8, kernel_size=(3, 3), normalization='batch',
-                                                         activation='mish', rate=0.1)),
+        layers.Residual2D(layers.ConvolutionBlock2D(filters=8, kernel_size=(3, 3), normalization='batch',
+                                                    activation='mish', rate=0.1)),
         keras.layers.MaxPooling2D(pool_size=(2, 2)),
-        layers.ResidualBlock2D(layers.InceptionBlock2D(filters=16, normalization='layer', activation='relu', rate=0.2)),
+        layers.Residual2D(layers.InceptionBlock2D(filters=16, normalization='layer', activation='relu', rate=0.2)),
         keras.layers.MaxPooling2D(pool_size=(2, 2)),
-        layers.ResidualBlock2D(layers.ConvolutionBlock2D(filters=32, kernel_size=(3, 3), normalization='batch',
-                                                         activation='swish')),
+        layers.Residual2D(layers.ConvolutionBlock2D(filters=32, kernel_size=(3, 3), normalization='batch',
+                                                    activation='swish')),
         keras.layers.MaxPooling2D(pool_size=(2, 2)),
-        layers.ResidualBlock2D(layers.InceptionBlock2D(filters=64, normalization='batch', activation='relu')),
+        layers.Residual2D(layers.InceptionBlock2D(filters=64, normalization='batch', activation='relu')),
         keras.layers.MaxPooling2D(pool_size=(2, 2)),
         keras.layers.Flatten(),
         layers.MultiLayerPerceptron(units=[512, 128, 32], activation=['relu', 'mish', 'swish'],

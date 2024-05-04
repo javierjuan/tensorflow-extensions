@@ -1,47 +1,39 @@
-import tensorflow as tf
+import warnings
+
+import keras
 
 from ..layers.embedding import FixedEmbedding
 from ..layers.encoding import PositionalEmbedding2D
 from ..layers.mlp import MultiLayerPerceptron
 from ..layers.transformer import Transformer
-from ..losses import Hungarian as HungarianLoss
+from ..losses.hungarian import hungarian_loss
 from ..metrics import Hungarian as HungarianMetric
 from ..models.model import Model
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.models')
+@keras.saving.register_keras_serializable(package='tfe.models')
 class DETRModel(Model):
     def __init__(self, name=None, **kwargs):
         super().__init__(name=name, **kwargs)
-        self.loss_tracker = tf.keras.metrics.Mean(name='loss')
-        self.custom_metrics = []
+        warnings.warn('This model has implicitly implemented the Hungarian loss, so no loss is needed at compile time. '
+                      'The current implementation uses the `linear_sum_assignment` function from SciPy library, which '
+                      'is a C++ Python wrapped function. In order to use it, we need to encapsulate this call into a'
+                      '`tf.numpy_function`, which prevents XLA compilation. Therefore, it is required to compile this'
+                      'model with `jit_compile=False`')
+        # self.hungarian_loss = HungarianLoss(label_weight=1.0, iou_weight=2.0, distance_weight=5.0, padding_axis=-1,
+        #                                     generalized=True, norm=1, focal=True, empty_weight=0.1)
+        self.hungarian_metric = HungarianMetric(padding_axis=-1, generalized=True, order=1)
 
-    def build(self, input_shape):
-        super().build(input_shape=input_shape)
-        # Check Hungarian Loss
-        if not isinstance(self.loss, HungarianLoss):
-            raise TypeError(f'`Hungarian` loss must be used to train this model')
-        # Hack for Hungarian metric
-        for i, metric in enumerate(list(self.compiled_metrics._metrics)):
-            if isinstance(metric, HungarianMetric):
-                self.custom_metrics.append(self.compiled_metrics._metrics.pop(i))
-        self._metrics.extend(self.custom_metrics)
+    def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None, allow_empty=False):
+        self.add_loss(hungarian_loss(y_true=y, y_pred=y_pred))
+        return super().compute_loss(x=x, y=y, y_pred=y_pred, sample_weight=sample_weight, allow_empty=allow_empty)
 
-    def compute_loss(self, x=None, y=None, y_pred=None, sample_weight=None):
-        del x
-        loss = self.loss(y_true=y, y_pred=y_pred, sample_weight=sample_weight)
-        if self.losses:
-            loss += tf.math.add_n(self.losses)
-        self.loss_tracker.update_state(loss)
-        return loss
-
-    def compute_metrics(self, x, y, y_pred, sample_weight):
-        for metric in self.custom_metrics:
-            metric.update_state(y_true=y, y_pred=y_pred)
+    def compute_metrics(self, x, y, y_pred, sample_weight=None):
+        self.hungarian_metric.update_state(y_true=y, y_pred=y_pred)
         return super().compute_metrics(x=x, y=y, y_pred=y_pred, sample_weight=sample_weight)
 
 
-@tf.keras.saving.register_keras_serializable(package='tfe.models')
+@keras.saving.register_keras_serializable(package='tfe.models')
 class DETR(DETRModel):
     def __init__(self,
                  num_queries,
@@ -134,18 +126,18 @@ class DETR(DETRModel):
         self.rate = rate
         self.seed = seed
 
-        self.backbone = tf.keras.applications.resnet.ResNet50(include_top=False) if backbone is None else backbone
-        self.convolution = tf.keras.layers.Convolution2D(
+        self._backbone = keras.applications.resnet.ResNet50(include_top=False) if backbone is None else backbone
+        self._convolution = keras.layers.Convolution2D(
             filters=embedding_dimension, kernel_size=(1, 1), strides=strides, padding=padding, data_format=data_format,
             dilation_rate=dilation_rate, groups=convolution_groups, activation=None, use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
-        self.positional_embedding = PositionalEmbedding2D(
+        self._positional_embedding = PositionalEmbedding2D(
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
-        self.transformer = Transformer(
+        self._transformer = Transformer(
             encoder_units=encoder_units, encoder_num_heads=encoder_num_heads, decoder_units=decoder_units,
             decoder_num_heads=decoder_num_heads, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -155,36 +147,35 @@ class DETR(DETRModel):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.label = tf.keras.layers.Dense(
+        self._label = keras.layers.Dense(
             units=num_labels + 1, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint)
-        self.bounding_box = MultiLayerPerceptron(
+            bias_constraint=bias_constraint, dtype='float32')
+        self._bounding_box = MultiLayerPerceptron(
             units=[64, 16, 4], activation=['mish', 'mish', 'sigmoid'], use_bias=use_bias,
             normalization=['layer', 'layer', None], kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
-            bias_constraint=bias_constraint)
-        self.query = FixedEmbedding(
-            input_dim=self.num_queries, output_dim=self.encoder_units[-1],
-            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
-            embeddings_constraint=self.embeddings_constraint)
+            bias_constraint=bias_constraint, dtype='float32')
+        self._query = FixedEmbedding(
+            input_dim=num_queries, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
+            embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint)
 
     def build(self, input_shape):
-        if not isinstance(self.backbone, tf.keras.Model):
+        if not isinstance(self._backbone, keras.Model):
             raise TypeError('`backbone` must be an instance of Keras Model')
 
-        for layer in self.backbone.layers:
+        for layer in self._backbone.layers:
             layer.trainable = self.train_backbone
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=None, mask=None):
-        x = self.backbone(inputs, training=training)
-        x = self.convolution(x)
-        x = self.positional_embedding(x)
-        x = self.transformer([x, self.query(batch_size=tf.shape(inputs)[0])], training=training)
-        return {'label': self.label(x), 'bounding_box': self.bounding_box(x)}
+        x = self._backbone(inputs, training=training)
+        x = self._convolution(x)
+        x = self._positional_embedding(x)
+        x = self._transformer(inputs=x, outputs=self._query(batch_size=inputs.shape[0]), training=training)
+        return {'label': self._label(x), 'bounding_box': self._bounding_box(x)}
 
     def get_config(self):
         config = super().get_config()
@@ -194,7 +185,7 @@ class DETR(DETRModel):
             'embedding_dimension': self.embedding_dimension,
             'encoder_units': self.encoder_units,
             'encoder_num_heads': self.encoder_num_heads,
-            'backbone': self.backbone,
+            'backbone': self._backbone,
             'train_backbone': self.train_backbone,
             'decoder_units': self.decoder_units,
             'decoder_num_heads': self.decoder_num_heads,

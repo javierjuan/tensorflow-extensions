@@ -3,14 +3,14 @@ import inspect
 import tensorflow as tf
 from keras import ops
 
-from tensorflow_extensions import layers
+import layers
 
 
 def _test_serialization(layer, layer_class):
     config = layer.get_config()
     init_signature = inspect.signature(layer_class.__init__)
     for parameter in init_signature.parameters.values():
-        if parameter.name in ('self', 'args', 'kwargs'):
+        if parameter.name in ('self', 'args', 'kwargs', 'layer', 'layers'):
             continue
         if parameter.name not in config.keys() or parameter.name not in layer.__dict__.keys():
             raise AssertionError(f'Parameter {parameter.name} not found in `config` or in {layer_class} attributes')
@@ -25,9 +25,10 @@ def _test_generic_layer(layer, layer_class, x, input_shape, output_shape, **kwar
 
 
 def test_convolutional_attention():
-    input_shape, output_shape = (32, 240, 240, 16), (32, 240, 240, 16)
+    input_shape, output_shape = (32, 240, 240, 16), (32, 240, 240, 64)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.ConvolutionalAttention2D(), layers.ConvolutionalAttention2D, x, input_shape,
+    layer = layers.ConvolutionBlock2D(filters=64, kernel_size=(3, 3))
+    _test_generic_layer(layers.ConvolutionalAttention2D(layer=layer), layers.ConvolutionalAttention2D, x, input_shape,
                         output_shape)
 
 
@@ -168,6 +169,13 @@ def test_mlp():
                         output_shape)
 
 
+def test_feed_forward():
+    input_shape, output_shape = (32, 512, 16), (32, 512, 1024)
+    x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
+    _test_generic_layer(layers.FeedForward(units=1024), layers.FeedForward, x, input_shape,
+                        output_shape)
+
+
 # def test_non_local_block():
 #     x = tf.random.uniform(shape=[32, 240, 240, 16], minval=0, maxval=1, seed=0)
 #     layer = layers.NonLocalBlock2D(mode='gaussian')
@@ -217,14 +225,14 @@ def test_channel_max_pooling():
 def test_residual_block():
     input_shape = (32, 240, 240, 16)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.ResidualBlock2D(layer=layers.ConvolutionBlock2D(filters=64)), layers.ResidualBlock2D, x,
-                        input_shape, (32, 240, 240, 64))
-    _test_generic_layer(layers.ResidualBlock2D(layer=layers.ConvolutionBlock2D(filters=64, kernel_size=(5, 5))),
-                        layers.ResidualBlock2D, x, input_shape, (32, 240, 240, 64))
-    _test_generic_layer(layers.ResidualBlock2D(layer=layers.ConvolutionBlock2D(filters=64, kernel_size=(5, 5),
-                                                                               strides=(4, 4))), layers.ResidualBlock2D,
-                        x,
-                        input_shape, (32, 240 // 4, 240 // 4, 64))
+    _test_generic_layer(layers.Residual2D(layers=layers.ConvolutionBlock2D(filters=64)), layers.Residual2D, x,
+                        input_shape, output_shape=(32, 240, 240, 64))
+    _test_generic_layer(layers.Residual2D(layers=layers.ConvolutionBlock2D(filters=64, kernel_size=(5, 5))),
+                        layers.Residual2D, x, input_shape, output_shape=(32, 240, 240, 64))
+    layers_ = [layers.ConvolutionBlock2D(filters=64, kernel_size=(5, 5), strides=(4, 4)),
+               layers.ConvolutionBlock2D(filters=64, kernel_size=(3, 3), strides=(4, 4))]
+    _test_generic_layer(layers.Residual2D(layers=layers_), layers.Residual2D, x, input_shape,
+                        output_shape=(32, 240 // 16, 240 // 16, 64))
 
 
 def test_transformer_encoder():
