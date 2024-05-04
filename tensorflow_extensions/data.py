@@ -4,7 +4,7 @@ import sys
 from abc import ABC, abstractmethod
 from os import PathLike
 from pathlib import Path
-from typing import Union, Dict, Optional, Any, Sequence, Tuple, List
+from typing import Dict, Any, Sequence, Tuple, List
 
 import numpy as np
 import tensorflow as tf
@@ -27,11 +27,11 @@ class DatasetManagerBase(ABC):
         self.logger = self._initialize_logger(name=name)
 
     @classmethod
-    def from_json(cls, inputs: Union[Dict, PathLike, str]):
+    def from_json(cls, inputs: Dict | PathLike | str):
         return cls(**cls.load_json(inputs))
 
     @staticmethod
-    def load_json(inputs: Union[Dict, PathLike, str]) -> Dict[str, Any]:
+    def load_json(inputs: Dict | PathLike | str) -> Dict[str, Any]:
         if isinstance(inputs, (PathLike, str)):
             if Path(inputs).is_file():
                 with open(inputs, 'r') as file:
@@ -40,7 +40,7 @@ class DatasetManagerBase(ABC):
                 inputs = json.loads(inputs)
         return inputs
 
-    def to_json(self, file_path: Optional[Union[PathLike, str]] = None, indent: int = 4) -> str:
+    def to_json(self, file_path: PathLike | str | None = None, indent: int = 4) -> str:
         output = json.dumps(self.to_dict(), indent=indent)
         if file_path is not None:
             with open(file_path, 'w') as file:
@@ -51,7 +51,7 @@ class DatasetManagerBase(ABC):
         return self.__dict__.copy()
 
     @staticmethod
-    def _initialize_logger(name: str, handlers: Optional[Sequence[logging.Handler]] = None) -> logging.Logger:
+    def _initialize_logger(name: str, handlers: Sequence[logging.Handler] | None = None) -> logging.Logger:
         logger = logging.getLogger(name=name)
         logger.setLevel(logging.INFO)
         add_stream_handler = True
@@ -65,7 +65,7 @@ class DatasetManagerBase(ABC):
             logger.addHandler(handler)
         return logger
 
-    def datasets_from_directory(self, directory: Union[PathLike, str], extension: str = '.tfrecord',
+    def datasets_from_directory(self, directory: PathLike | str, extension: str = '.tfrecord',
                                 verbose: bool = True) -> List[tf.data.Dataset]:
         file_paths = sorted(Path(directory).glob('*' + extension))
         if not file_paths:
@@ -79,8 +79,8 @@ class DatasetManagerBase(ABC):
             datasets.append(tf.data.TFRecordDataset(filenames=file_path))
         return datasets
 
-    def sample_from_datasets(self, datasets: Sequence[tf.data.Dataset], weights: Optional[Sequence[float]] = None,
-                             verbose: bool = True, seed: Optional[bool] = None,
+    def sample_from_datasets(self, datasets: Sequence[tf.data.Dataset], weights: Sequence[float] | None = None,
+                             verbose: bool = True, seed: bool | None = None,
                              stop_on_empty_dataset: bool = False) -> tf.data.Dataset:
         if len(datasets) == 1:
             return datasets[0]
