@@ -1,6 +1,6 @@
 import keras
 
-from . import MultiLayerPerceptron
+from .feedforward import FeedForward
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
@@ -56,16 +56,16 @@ class TransformerAttention(keras.layers.Layer):
         self.attention_scores = None
         self.supports_masking = True
 
-        self.attention = None
-        self.normalization = keras.layers.LayerNormalization(
+        self._attention = None
+        self._normalization = keras.layers.LayerNormalization(
             axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
             gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
             beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.add = keras.layers.Add()
+        self._add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1]
-        self.attention = keras.layers.MultiHeadAttention(
+        self._attention = keras.layers.MultiHeadAttention(
             num_heads=self.num_heads, key_dim=embedding_dimension // self.num_heads, value_dim=None,
             dropout=self.dropout, use_bias=self.use_bias, output_shape=self.output_shape,
             attention_axes=self.attention_axes, kernel_initializer=self.kernel_initializer,
@@ -75,14 +75,14 @@ class TransformerAttention(keras.layers.Layer):
         super().build(input_shape=input_shape)
 
     def call(self, inputs, context=None, training=False, use_causal_mask=False, **kwargs):
-        x = self.normalization(inputs)
-        context = x if context is None else self.normalization(context)
-        x, self.attention_scores = self.attention(query=x, value=context, key=context, return_attention_scores=True,
-                                                  training=training, use_causal_mask=use_causal_mask)
-        return self.add([x, inputs])
+        x = self._normalization(inputs)
+        context = x if context is None else self._normalization(context)
+        x, self.attention_scores = self._attention(query=x, value=context, key=context, return_attention_scores=True,
+                                                   training=training, use_causal_mask=use_causal_mask)
+        return self._add([x, inputs])
 
     def compute_output_shape(self, query_shape, value_shape):
-        return self.attention.compute_output_shape(query_shape=query_shape, value_shape=value_shape)
+        return self._attention.compute_output_shape(query_shape=query_shape, value_shape=value_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -165,32 +165,33 @@ class TransformerFeedForward(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.normalization = keras.layers.LayerNormalization(
+        self._feed_forward = None
+        self._normalization = keras.layers.LayerNormalization(
             axis=axis, epsilon=epsilon, center=center, scale=scale, beta_initializer=beta_initializer,
             gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer,
             beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
-        self.add = keras.layers.Add()
+        self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self._add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1]
-        self.mlp = MultiLayerPerceptron(
-            units=[self.units, embedding_dimension], normalization=None,
-            activation=[self.activation, None], use_bias=self.use_bias, kernel_initializer=self.kernel_initializer,
-            bias_initializer=self.bias_initializer, kernel_regularizer=self.kernel_regularizer,
-            bias_regularizer=self.bias_regularizer, activity_regularizer=self.activity_regularizer,
-            kernel_constraint=self.kernel_constraint, bias_constraint=self.bias_constraint)
+        self._feed_forward = FeedForward(
+            units=[self.units, embedding_dimension], activation=[self.activation, None],
+            use_bias=self.use_bias, kernel_initializer=self.kernel_initializer, bias_initializer=self.bias_initializer,
+            kernel_regularizer=self.kernel_regularizer, bias_regularizer=self.bias_regularizer,
+            activity_regularizer=self.activity_regularizer, kernel_constraint=self.kernel_constraint,
+            bias_constraint=self.bias_constraint)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, training=False, **kwargs):
-        x = self.normalization(inputs)
-        x = self.mlp(x)
-        if self.dropout is not None:
-            x = self.dropout(x, training=training)
-        return self.add([x, inputs])
+        x = self._normalization(inputs)
+        x = self._feed_forward(x)
+        if self._dropout is not None:
+            x = self._dropout(x, training=training)
+        return self._add([x, inputs])
 
     def compute_output_shape(self, input_shape):
-        return self.mlp.compute_output_shape(input_shape=input_shape)
+        return self._feed_forward.compute_output_shape(input_shape=input_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -279,7 +280,7 @@ class TransformerEncoderLayer(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.self_attention = TransformerAttention(
+        self._self_attention = TransformerAttention(
             num_heads=num_heads, dropout=rate, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -287,7 +288,7 @@ class TransformerEncoderLayer(keras.layers.Layer):
             bias_constraint=bias_constraint, axis=axis, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.feed_forward = TransformerFeedForward(
+        self._feed_forward = TransformerFeedForward(
             units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
@@ -297,13 +298,13 @@ class TransformerEncoderLayer(keras.layers.Layer):
             axis=axis, rate=rate, seed=seed)
 
     def call(self, inputs, training=False, **kwargs):
-        x = self.self_attention(inputs, training=training)
-        x = self.feed_forward(x, training=training)
+        x = self._self_attention(inputs, training=training)
+        x = self._feed_forward(x, training=training)
         return x
 
     def compute_output_shape(self, input_shape):
-        output_shape = self.self_attention.compute_output_shape(query_shape=input_shape, value_shape=input_shape)
-        return self.feed_forward.compute_output_shape(input_shape=output_shape)
+        output_shape = self._self_attention.compute_output_shape(query_shape=input_shape, value_shape=input_shape)
+        return self._feed_forward.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -395,7 +396,7 @@ class TransformerDecoderLayer(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.self_attention = TransformerAttention(
+        self._self_attention = TransformerAttention(
             num_heads=num_heads, dropout=rate, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -403,7 +404,7 @@ class TransformerDecoderLayer(keras.layers.Layer):
             bias_constraint=bias_constraint, axis=axis, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.cross_attention = TransformerAttention(
+        self._cross_attention = TransformerAttention(
             num_heads=num_heads, dropout=rate, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -411,7 +412,7 @@ class TransformerDecoderLayer(keras.layers.Layer):
             bias_constraint=bias_constraint, axis=axis, epsilon=epsilon, center=center, scale=scale,
             beta_initializer=beta_initializer, gamma_initializer=gamma_initializer, beta_regularizer=beta_regularizer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint)
-        self.feed_forward = TransformerFeedForward(
+        self._feed_forward = TransformerFeedForward(
             units=units, activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
@@ -421,16 +422,16 @@ class TransformerDecoderLayer(keras.layers.Layer):
             axis=axis, rate=rate, seed=seed)
 
     def call(self, inputs, context=None, use_causal_mask=True, training=False, **kwargs):
-        x = self.self_attention(inputs, context=None, training=training, use_causal_mask=use_causal_mask)
-        x = self.cross_attention(x, context=context, training=training, use_causal_mask=False)
-        x = self.feed_forward(x, training=training)
+        x = self._self_attention(inputs, context=None, training=training, use_causal_mask=use_causal_mask)
+        x = self._cross_attention(x, context=context, training=training, use_causal_mask=False)
+        x = self._feed_forward(x, training=training)
         return x
 
     def compute_output_shape(self, input_shape, context_shape=None):
-        output_shape = self.self_attention.compute_output_shape(query_shape=input_shape, value_shape=input_shape)
+        output_shape = self._self_attention.compute_output_shape(query_shape=input_shape, value_shape=input_shape)
         context_shape = output_shape if context_shape is None else context_shape
-        output_shape = self.cross_attention.compute_output_shape(query_shape=output_shape, value_shape=context_shape)
-        return self.feed_forward.compute_output_shape(input_shape=output_shape)
+        output_shape = self._cross_attention.compute_output_shape(query_shape=output_shape, value_shape=context_shape)
+        return self._feed_forward.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -528,7 +529,7 @@ class TransformerEncoder(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.encoder = [TransformerEncoderLayer(
+        self._layers = [TransformerEncoderLayer(
             units=_units, num_heads=_num_heads, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -539,12 +540,12 @@ class TransformerEncoder(keras.layers.Layer):
             gamma_constraint=gamma_constraint, rate=rate, seed=seed) for _units, _num_heads in zip(units, num_heads)]
 
     def call(self, inputs, training=False, **kwargs):
-        for layer in self.encoder:
+        for layer in self._layers:
             inputs = layer(inputs, training=training)
         return inputs
 
     def compute_output_shape(self, input_shape):
-        for layer in self.encoder:
+        for layer in self._layers:
             input_shape = layer.compute_output_shape(input_shape=input_shape)
         return input_shape
 
@@ -644,7 +645,7 @@ class TransformerDecoder(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.decoder = [TransformerDecoderLayer(
+        self._layers = [TransformerDecoderLayer(
             units=_units, num_heads=_num_heads, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -655,12 +656,12 @@ class TransformerDecoder(keras.layers.Layer):
             gamma_constraint=gamma_constraint, rate=rate, seed=seed) for _units, _num_heads in zip(units, num_heads)]
 
     def call(self, inputs, context=None, use_causal_mask=True, training=False, **kwargs):
-        for layer in self.decoder:
+        for layer in self._layers:
             inputs = layer(inputs, context=context, use_causal_mask=use_causal_mask, training=training)
         return inputs
 
     def compute_output_shape(self, input_shape, context_shape=None):
-        for layer in self.decoder:
+        for layer in self._layers:
             input_shape = layer.compute_output_shape(input_shape=input_shape, context_shape=context_shape)
         return input_shape
 
@@ -761,7 +762,7 @@ class Transformer(keras.layers.Layer):
         self.rate = rate
         self.seed = seed
 
-        self.encoder = TransformerEncoder(
+        self._encoder = TransformerEncoder(
             units=encoder_units, num_heads=encoder_num_heads, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -770,7 +771,7 @@ class Transformer(keras.layers.Layer):
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
-        self.decoder = TransformerDecoder(
+        self._decoder = TransformerDecoder(
             units=decoder_units, num_heads=decoder_num_heads, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -781,13 +782,13 @@ class Transformer(keras.layers.Layer):
             gamma_constraint=gamma_constraint, rate=rate, seed=seed)
 
     def call(self, inputs, outputs, use_causal_mask=True, training=False, **kwargs):
-        inputs = self.encoder(inputs, training=training)
-        outputs = self.decoder(outputs, context=inputs, use_causal_mask=use_causal_mask, training=training)
+        inputs = self._encoder(inputs, training=training)
+        outputs = self._decoder(outputs, context=inputs, use_causal_mask=use_causal_mask, training=training)
         return outputs
 
     def compute_output_shape(self, input_shape, output_shape):
-        input_shape = self.encoder.compute_output_shape(input_shape=input_shape)
-        return self.decoder.compute_output_shape(input_shape=output_shape, context_shape=input_shape)
+        input_shape = self._encoder.compute_output_shape(input_shape=input_shape)
+        return self._decoder.compute_output_shape(input_shape=output_shape, context_shape=input_shape)
 
     def get_config(self):
         config = super().get_config()

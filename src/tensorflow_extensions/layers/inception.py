@@ -75,7 +75,7 @@ class InceptionBlock2D(keras.layers.Layer):
         self.pool_size = pool_size
         self.supports_masking = True
 
-        self.block_1x = ConvolutionBlock2D(
+        self._block_1x = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -87,7 +87,7 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=seed)
-        self.block_3x = ConvolutionBlock2D(
+        self._block_3x = ConvolutionBlock2D(
             filters=filters, kernel_size=(3, 3), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -99,7 +99,7 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=seed)
-        self.block_5x0 = ConvolutionBlock2D(
+        self._block_5x0 = ConvolutionBlock2D(
             filters=filters, kernel_size=(3, 3), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -111,7 +111,7 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=seed)
-        self.block_5x1 = ConvolutionBlock2D(
+        self._block_5x1 = ConvolutionBlock2D(
             filters=filters, kernel_size=(3, 3), strides=strides, padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -123,8 +123,8 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=seed)
-        self.max_pooling = keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding='same')
-        self.block_max_pooling = ConvolutionBlock2D(
+        self._max_pooling = keras.layers.MaxPooling2D(pool_size=pool_size, strides=strides, padding='same')
+        self._block_max_pooling = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -136,7 +136,7 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=seed)
-        self.block_compression = ConvolutionBlock2D(
+        self._block_compression = ConvolutionBlock2D(
             filters=filters, kernel_size=(1, 1), strides=(1, 1), padding='same', data_format=data_format,
             dilation_rate=dilation_rate, convolution_groups=convolution_groups, activation=activation,
             use_bias=use_bias, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -148,32 +148,32 @@ class InceptionBlock2D(keras.layers.Layer):
             beta_regularizer=beta_regularizer, moving_variance_initializer=moving_variance_initializer,
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=None, seed=seed)
-        self.concatenate = keras.layers.Concatenate(axis=axis)
-        self.dropout = keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
+        self._concatenate = keras.layers.Concatenate(axis=axis)
+        self._dropout = keras.layers.SpatialDropout2D(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
-        if self.dropout is not None:
-            inputs = self.dropout(inputs, training=training)
-        x1 = self.block_1x(inputs, training=training)
-        x3 = self.block_3x(inputs, training=training)
-        x5 = self.block_5x0(inputs, training=training)
-        x5 = self.block_5x1(x5, training=training)
-        mp = self.max_pooling(inputs)
-        mp = self.block_max_pooling(mp, training=training)
-        x = self.concatenate([x1, x3, x5, mp])
-        x = self.block_compression(x, training=training)
+        if self._dropout is not None:
+            inputs = self._dropout(inputs, training=training)
+        x1 = self._block_1x(inputs, training=training)
+        x3 = self._block_3x(inputs, training=training)
+        x5 = self._block_5x0(inputs, training=training)
+        x5 = self._block_5x1(x5, training=training)
+        mp = self._max_pooling(inputs)
+        mp = self._block_max_pooling(mp, training=training)
+        x = self._concatenate([x1, x3, x5, mp])
+        x = self._block_compression(x, training=training)
         return x
 
     def compute_output_shape(self, input_shape):
-        output_shape_1 = self.block_1x.compute_output_shape(input_shape=input_shape)
-        output_shape_3 = self.block_3x.compute_output_shape(input_shape=input_shape)
-        output_shape_5 = self.block_5x0.compute_output_shape(input_shape=input_shape)
-        output_shape_5 = self.block_5x1.compute_output_shape(input_shape=output_shape_5)
-        output_shape_mp = self.max_pooling.compute_output_shape(input_shape=input_shape)
-        output_shape_mp = self.block_max_pooling.compute_output_shape(input_shape=output_shape_mp)
+        output_shape_1 = self._block_1x.compute_output_shape(input_shape=input_shape)
+        output_shape_3 = self._block_3x.compute_output_shape(input_shape=input_shape)
+        output_shape_5 = self._block_5x0.compute_output_shape(input_shape=input_shape)
+        output_shape_5 = self._block_5x1.compute_output_shape(input_shape=output_shape_5)
+        output_shape_mp = self._max_pooling.compute_output_shape(input_shape=input_shape)
+        output_shape_mp = self._block_max_pooling.compute_output_shape(input_shape=output_shape_mp)
         output_shape = [output_shape_1, output_shape_3, output_shape_5, output_shape_mp]
-        output_shape = self.concatenate.compute_output_shape(input_shape=output_shape)
-        return self.block_compression.compute_output_shape(input_shape=output_shape)
+        output_shape = self._concatenate.compute_output_shape(input_shape=output_shape)
+        return self._block_compression.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()

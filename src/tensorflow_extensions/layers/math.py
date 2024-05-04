@@ -85,20 +85,20 @@ class MathReduce(keras.layers.Layer):
         self.keepdims = keepdims
 
         if reduce_mode == 'min':
-            self.reduce_operation = ops.min
+            self._reduce_operation = ops.min
         elif reduce_mode == 'max':
-            self.reduce_operation = ops.max
+            self._reduce_operation = ops.max
         elif reduce_mode == 'mean':
-            self.reduce_operation = ops.mean
+            self._reduce_operation = ops.mean
         elif reduce_mode == 'sum':
-            self.reduce_operation = ops.sum
+            self._reduce_operation = ops.sum
         elif reduce_mode == 'prod':
-            self.reduce_operation = ops.prod
+            self._reduce_operation = ops.prod
         else:
             raise ValueError(f'Unexpected operation {reduce_mode}')
 
     def call(self, inputs, **kwargs):
-        return self.reduce_operation(inputs, axis=self.axis, keepdims=self.keepdims)
+        return self._reduce_operation(inputs, axis=self.axis, keepdims=self.keepdims)
 
     def compute_output_shape(self, input_shape):
         axis = normalize_axis(self.axis, len(input_shape))

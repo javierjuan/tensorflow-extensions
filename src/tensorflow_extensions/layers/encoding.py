@@ -15,17 +15,17 @@ class PositionalEncoding1D(keras.layers.Layer):
         self.max_wavelength = max_wavelength
         self.supports_masking = True
 
-        self.positions_mask = None
-        self.timescales = None
-        self.add = keras.layers.Add()
+        self._positions_mask = None
+        self._timescales = None
+        self._add = keras.layers.Add()
 
     def build(self, input_shape):
         embedding_dimension = input_shape[-1]
         timescales = ops.power(ops.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
                                (ops.cast(2 * (ops.arange(embedding_dimension) // 2), self.compute_dtype) /
                                 ops.cast(embedding_dimension, self.compute_dtype)))
-        self.timescales = ops.expand_dims(timescales, axis=0)
-        self.positions_mask = ops.cast(ops.arange(embedding_dimension) % 2, self.compute_dtype)
+        self._timescales = ops.expand_dims(timescales, axis=0)
+        self._positions_mask = ops.cast(ops.arange(embedding_dimension) % 2, self.compute_dtype)
         super().build(input_shape=input_shape)
 
     def compute_output_shape(self, input_shape):
@@ -33,9 +33,9 @@ class PositionalEncoding1D(keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         positions = ops.cast(ops.arange(inputs.shape[-2]), dtype=self.compute_dtype)
-        angles = ops.expand_dims(positions, axis=1) * self.timescales
-        encoding = ops.sin(angles) * (1 - self.positions_mask) + ops.cos(angles) * self.positions_mask
-        return self.add([inputs, ops.broadcast_to(encoding, shape=inputs.shape)])
+        angles = ops.expand_dims(positions, axis=1) * self._timescales
+        encoding = ops.sin(angles) * (1 - self._positions_mask) + ops.cos(angles) * self._positions_mask
+        return self._add([inputs, ops.broadcast_to(encoding, shape=inputs.shape)])
 
     def get_config(self):
         config = super().get_config()
@@ -59,14 +59,14 @@ class PositionalEmbedding1D(keras.layers.Layer):
         self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self.embedding = None
-        self.add = keras.layers.Add()
+        self._embedding = None
+        self._add = keras.layers.Add()
 
     def build(self, input_shape):
         # TODO: This is possibly incorrect because `input_dim` cannot be extrapolated only from the first sample used in
         #  the training process (which is the one used to run the `build()` method. If so, we are assuming that there
         #  are not ragged tensors, and hence we can replace this `Embedding` with a `FixedEmbedding` layer
-        self.embedding = keras.layers.Embedding(
+        self._embedding = keras.layers.Embedding(
             input_dim=input_shape[-2], output_dim=input_shape[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint, mask_zero=False)
@@ -74,7 +74,7 @@ class PositionalEmbedding1D(keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         positions = ops.cast(ops.arange(inputs.shape[-2]), dtype=self.compute_dtype)
-        return self.add([inputs, ops.broadcast_to(self.embedding(positions), shape=inputs.shape)])
+        return self._add([inputs, ops.broadcast_to(self._embedding(positions), shape=inputs.shape)])
 
     def compute_output_shape(self, input_shape):
         return input_shape
@@ -103,20 +103,20 @@ class PositionalEmbedding2D(keras.layers.Layer):
         self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self.embedding = None
-        self.add = keras.layers.Add()
+        self._embedding = None
+        self._add = keras.layers.Add()
 
     def build(self, input_shape):
-        self.embedding = FixedEmbedding(
+        self._embedding = FixedEmbedding(
             input_dim=input_shape[-2] * input_shape[-3], output_dim=input_shape[-1],
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
         super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
-        embedding = self.embedding(batch_size=inputs.shape[0])
+        embedding = self._embedding(batch_size=inputs.shape[0])
         inputs = ops.reshape(inputs, newshape=[-1, inputs.shape[1] * inputs.shape[2], inputs.shape[3]])
-        return self.add([inputs, embedding])
+        return self._add([inputs, embedding])
 
     def compute_output_shape(self, input_shape):
         return input_shape[0], input_shape[1] * input_shape[2], input_shape[3]
@@ -157,23 +157,23 @@ class TokenAndPositionEncoding(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.token_embedding = keras.layers.Embedding(
+        self._token_embedding = keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint,
             mask_zero=mask_zero)
-        self.positional_encoding = PositionalEncoding1D(max_wavelength=max_wavelength)
-        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self._positional_encoding = PositionalEncoding1D(max_wavelength=max_wavelength)
+        self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
-        x = self.token_embedding(inputs)
-        x = self.positional_encoding(x)
-        if self.dropout is not None:
-            x = self.dropout(x, training=training)
+        x = self._token_embedding(inputs)
+        x = self._positional_encoding(x)
+        if self._dropout is not None:
+            x = self._dropout(x, training=training)
         return x
 
     def compute_output_shape(self, input_shape):
-        output_shape = self.token_embedding.compute_output_shape(input_shape=input_shape)
-        return self.positional_encoding.compute_output_shape(input_shape=output_shape)
+        output_shape = self._token_embedding.compute_output_shape(input_shape=input_shape)
+        return self._positional_encoding.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -215,25 +215,25 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.token_embedding = keras.layers.Embedding(
+        self._token_embedding = keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint,
             mask_zero=mask_zero)
-        self.positional_embedding = PositionalEmbedding1D(
+        self._positional_embedding = PositionalEmbedding1D(
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
-        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
-        x = self.token_embedding(inputs)
-        x = self.positional_embedding(x)
-        if self.dropout is not None:
-            x = self.dropout(x, training=training)
+        x = self._token_embedding(inputs)
+        x = self._positional_embedding(x)
+        if self._dropout is not None:
+            x = self._dropout(x, training=training)
         return x
 
     def compute_output_shape(self, input_shape):
-        output_shape = self.token_embedding.compute_output_shape(input_shape=input_shape)
-        return self.positional_embedding.compute_output_shape(input_shape=output_shape)
+        output_shape = self._token_embedding.compute_output_shape(input_shape=input_shape)
+        return self._positional_embedding.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -291,14 +291,14 @@ class PatchEmbedding2D(keras.layers.Layer):
         self.supports_masking = True
 
         if mode == 'patch':
-            self.patch_extractor = PatchExtractor2D(size=size, strides=strides, padding=padding)
-            self.dense = keras.layers.Dense(
+            self._patch_extractor = PatchExtractor2D(size=size, strides=strides, padding=padding)
+            self._dense = keras.layers.Dense(
                 units=embedding_dimension, activation=None, use_bias=use_bias, kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer,
                 bias_regularizer=bias_regularizer, activity_regularizer=activity_regularizer,
                 kernel_constraint=kernel_constraint, bias_constraint=bias_constraint)
         elif mode == 'convolution':
-            self.convolution = keras.layers.Convolution2D(
+            self._convolution = keras.layers.Convolution2D(
                 filters=embedding_dimension, kernel_size=size, strides=strides, padding=padding,
                 data_format=data_format, groups=convolution_groups, activation=None, use_bias=use_bias,
                 kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
@@ -310,17 +310,16 @@ class PatchEmbedding2D(keras.layers.Layer):
 
     def call(self, inputs, **kwargs):
         if self.mode == 'patch':
-            patches = self.patch_extractor(inputs)
-            return self.dense(patches)
+            return self._dense(self._patch_extractor(inputs))
         else:
-            return self.convolution(inputs)
+            return self._convolution(inputs)
 
     def compute_output_shape(self, input_shape):
         if self.mode == 'patch':
-            output_shape = self.patch_extractor.compute_output_shape(input_shape=input_shape)
-            return self.dense.compute_output_shape(input_shape=output_shape)
+            output_shape = self._patch_extractor.compute_output_shape(input_shape=input_shape)
+            return self._dense.compute_output_shape(input_shape=output_shape)
         else:
-            return self.convolution.compute_output_shape(input_shape=input_shape)
+            return self._convolution.compute_output_shape(input_shape=input_shape)
 
     def get_config(self):
         config = super().get_config()
@@ -392,28 +391,28 @@ class PatchAndPositionEmbedding2D(keras.layers.Layer):
         self.seed = seed
         self.supports_masking = True
 
-        self.patch_embedding = PatchEmbedding2D(
+        self._patch_embedding = PatchEmbedding2D(
             size=size, embedding_dimension=embedding_dimension, mode=mode, strides=strides, padding=padding,
             data_format=data_format, convolution_groups=convolution_groups, use_bias=use_bias,
             kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
-        self.positional_embedding = PositionalEmbedding2D(
+        self._positional_embedding = PositionalEmbedding2D(
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
-        self.dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
-        x = self.patch_embedding(inputs)
-        x = self.positional_embedding(x)
-        if self.dropout is not None:
-            x = self.dropout(x, training=training)
+        x = self._patch_embedding(inputs)
+        x = self._positional_embedding(x)
+        if self._dropout is not None:
+            x = self._dropout(x, training=training)
         return x
 
     def compute_output_shape(self, input_shape):
-        output_shape = self.patch_embedding.compute_output_shape(input_shape=input_shape)
-        return self.positional_embedding.compute_output_shape(input_shape=output_shape)
+        output_shape = self._patch_embedding.compute_output_shape(input_shape=input_shape)
+        return self._positional_embedding.compute_output_shape(input_shape=output_shape)
 
     def get_config(self):
         config = super().get_config()

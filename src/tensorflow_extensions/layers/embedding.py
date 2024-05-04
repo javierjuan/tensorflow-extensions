@@ -19,15 +19,15 @@ class FixedEmbedding(keras.layers.Layer):
         self.embeddings_regularizer = embeddings_regularizer
         self.embeddings_constraint = embeddings_constraint
 
-        self.embedding = self.add_weight(
+        self._embedding = self.add_weight(
             shape=(input_dim, output_dim), initializer=embeddings_initializer, regularizer=embeddings_regularizer,
             constraint=embeddings_constraint, trainable=True, name='fixed_embedding')
 
     def call(self, batch_size=None, **kwargs):
         if batch_size is None:
-            return self.embedding
+            return self._embedding
         else:
-            return ops.repeat(ops.expand_dims(self.embedding, axis=0), repeats=batch_size, axis=0)
+            return ops.repeat(ops.expand_dims(self._embedding, axis=0), repeats=batch_size, axis=0)
 
     def compute_output_shape(self, batch_size=None):
         if batch_size is None:
