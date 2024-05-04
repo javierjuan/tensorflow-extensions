@@ -1,5 +1,6 @@
 from abc import abstractmethod, ABC
-from typing import Tuple, Union, Dict, Optional
+from os import PathLike
+from typing import Tuple, Dict
 
 import keras
 import numpy as np
@@ -9,11 +10,11 @@ from PIL import Image
 from keras import ops
 
 
-class COCODataset(ABC):
-    def __init__(self, image_shape: Tuple[int, int, int], data_directory: str):
+class COCO(ABC):
+    def __init__(self, image_shape: Tuple[int, int, int], directory: PathLike | str):
         self.image_shape = image_shape
         self.num_labels = 80
-        self.data_directory = data_directory
+        self.directory = directory
         self.categories = {
             0: 'person',
             1: 'bicycle',
@@ -113,30 +114,30 @@ class COCODataset(ABC):
     def image_size(self) -> Tuple[int, int]:
         return self.width, self.height
 
-    def input_shape(self, batch_size: Optional[int] = None) -> Tuple[int, int, int, int]:
+    def input_shape(self, batch_size: int | None = None) -> Tuple[int, int, int, int]:
         return (batch_size,) + self.image_shape
 
     def input_sample(self, batch_size: int = 32) -> keras.KerasTensor:
         return keras.Input(batch_shape=self.input_shape(batch_size=batch_size))
 
     def train_dataset(self, batch_size: int, shuffle: bool = True, download: bool = False) -> tf.data.Dataset:
-        dataset = tfds.load(name='coco/2017', split='train', data_dir=self.data_directory,
-                            shuffle_files=shuffle, download=download, with_info=False)
+        dataset = tfds.load(name='coco/2017', split='train', data_dir=self.directory, shuffle_files=shuffle,
+                            download=download, with_info=False)
         return self._configure_dataset(dataset=dataset, batch_size=batch_size)
 
     def validation_dataset(self, batch_size: int, download: bool = False) -> tf.data.Dataset:
-        dataset = tfds.load(name='coco/2017', split='validation', data_dir=self.data_directory,
-                            shuffle_files=False, download=download, with_info=False)
+        dataset = tfds.load(name='coco/2017', split='validation', data_dir=self.directory, shuffle_files=False,
+                            download=download, with_info=False)
         return self._configure_dataset(dataset=dataset, batch_size=batch_size)
 
     def test_dataset(self, batch_size: int, download: bool = False) -> tf.data.Dataset:
-        dataset = tfds.load(name='coco/2017', split='test', data_dir=self.data_directory,
-                            shuffle_files=False, download=download, with_info=False)
+        dataset = tfds.load(name='coco/2017', split='test', data_dir=self.directory, shuffle_files=False,
+                            download=download, with_info=False)
         return self._configure_dataset(dataset=dataset, batch_size=batch_size)
 
     @staticmethod
     def image_from_tensor(image: tf.Tensor) -> Image:
-        return COCODataset.image_from_numpy(image.numpy())
+        return COCO.image_from_numpy(image.numpy())
 
     @staticmethod
     def image_from_numpy(image: np.ndarray) -> Image:
@@ -146,7 +147,7 @@ class COCODataset(ABC):
     def _configure_dataset(self, dataset: tf.data.Dataset, batch_size: int) -> tf.data.Dataset:
         raise NotImplementedError
 
-    def to_categories(self, labels: Union[tf.Tensor, np.ndarray], threshold: float = 0.5) -> Dict[int, str]:
+    def to_categories(self, labels: tf.Tensor | np.ndarray, threshold: float = 0.5) -> Dict[int, str]:
         if isinstance(labels, tf.Tensor):
             labels = labels.numpy()
         return {label: self.categories[label] for label in map(int, np.argwhere(labels > threshold))}
@@ -162,7 +163,7 @@ class COCODataset(ABC):
         return counts / samples
 
 
-class COCOClassificationDataset(COCODataset):
+class COCOClassification(COCO):
     def _configure_dataset(self, dataset: tf.data.Dataset, batch_size: int) -> tf.data.Dataset:
         def as_supervised(sample):
             return sample['image'], sample['objects']['label']
@@ -186,9 +187,9 @@ class COCOClassificationDataset(COCODataset):
         return dataset
 
 
-class COCOObjectDetectionDataset(COCODataset):
-    def __init__(self, image_shape: Tuple[int, int, int], data_directory: str, num_queries: int = 100):
-        super().__init__(image_shape=image_shape, data_directory=data_directory)
+class COCOObjectDetection(COCO):
+    def __init__(self, image_shape: Tuple[int, int, int], directory: str, num_queries: int = 100):
+        super().__init__(image_shape=image_shape, directory=directory)
         self.num_queries = num_queries
 
     def _configure_dataset(self, dataset: tf.data.Dataset, batch_size: int) -> tf.data.Dataset:
