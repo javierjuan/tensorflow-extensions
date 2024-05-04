@@ -155,7 +155,6 @@ class TokenAndPositionEncoding(keras.layers.Layer):
         self.mask_zero = mask_zero
         self.rate = rate
         self.seed = seed
-        self.supports_masking = True
 
         self._token_embedding = keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
@@ -163,6 +162,7 @@ class TokenAndPositionEncoding(keras.layers.Layer):
             mask_zero=mask_zero)
         self._positional_encoding = PositionalEncoding1D(max_wavelength=max_wavelength)
         self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self.supports_masking = self._token_embedding.supports_masking
 
     def call(self, inputs, training=False, **kwargs):
         x = self._token_embedding(inputs)
@@ -213,7 +213,6 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
         self.mask_zero = mask_zero
         self.rate = rate
         self.seed = seed
-        self.supports_masking = True
 
         self._token_embedding = keras.layers.Embedding(
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
@@ -223,6 +222,7 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
         self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
+        self.supports_masking = self._token_embedding.supports_masking
 
     def call(self, inputs, training=False, **kwargs):
         x = self._token_embedding(inputs)
