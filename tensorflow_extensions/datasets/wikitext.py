@@ -1,10 +1,10 @@
-import json
 import logging
 from abc import ABC
 from os import PathLike
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Tuple
 
+import keras
 import tensorflow as tf
 import tensorflow_datasets as tfds
 from keras import ops
@@ -23,35 +23,16 @@ class WikiText(ABC):
         self.tokenizer = tokenizer
         self.directory = directory
         self.sequence_length = sequence_length
+        self.packer = layers.StartEndPacker(sequence_length=self.sequence_length, start_value=self.start_token_id,
+                                            end_value=self.end_token_id, pad_value=self.pad_token_id)
 
         self.logger = logging.getLogger(name=self.__class__.__name__)
 
-    @classmethod
-    def from_json(cls, inputs: Dict[str, Any] | PathLike | str):
-        return cls(**cls.load_json(inputs))
+    def input_shape(self, batch_size: int | None = None) -> Tuple[int, int]:
+        return batch_size, self.sequence_length
 
-    @staticmethod
-    def load_json(inputs: Dict | PathLike | str) -> Dict[str, Any]:
-        if isinstance(inputs, (PathLike, str)):
-            if Path(inputs).is_file():
-                with open(inputs, 'r') as file:
-                    inputs = json.load(file)
-            else:
-                inputs = json.loads(inputs)
-        inputs['tokenizer'] = tokenizers.Tokenizer.from_config(inputs['tokenizer'])
-        return inputs
-
-    def to_json(self, file_path: PathLike | str | None = None, indent: int = 4) -> str:
-        output = json.dumps(self.to_dict(), indent=indent)
-        if file_path is not None:
-            with open(file_path, 'w') as file:
-                file.write(output)
-        return output
-
-    def to_dict(self) -> Dict[str, Any]:
-        configuration = self.__dict__.copy()
-        configuration['tokenizer'] = self.tokenizer.get_config()
-        return configuration
+    def input_sample(self, batch_size: int = 32) -> keras.KerasTensor:
+        return keras.Input(batch_shape=self.input_shape(batch_size=batch_size))
 
     @property
     def vocabulary(self) -> List[str]:
@@ -60,6 +41,22 @@ class WikiText(ABC):
     @property
     def vocabulary_size(self) -> int:
         return self.tokenizer.vocabulary_size()
+
+    @property
+    def oov_token_id(self) -> int | None:
+        return self.tokenizer.token_to_id(self.oov_token) if self.oov_token in self.vocabulary else None
+
+    @property
+    def pad_token_id(self) -> int | None:
+        return self.tokenizer.token_to_id(self.pad_token) if self.pad_token in self.vocabulary else None
+
+    @property
+    def start_token_id(self) -> int | None:
+        return self.tokenizer.token_to_id(self.start_token) if self.start_token in self.vocabulary else None
+
+    @property
+    def end_token_id(self) -> int | None:
+        return self.tokenizer.token_to_id(self.end_token) if self.end_token in self.vocabulary else None
 
     @staticmethod
     def _configure_vocabulary_dataset(dataset: tf.data.Dataset, min_tokens: int) -> tf.data.Dataset:
@@ -76,13 +73,8 @@ class WikiText(ABC):
     def _configure_dataset(self, dataset: tf.data.Dataset, min_tokens: int, batch_size: int,
                            buffer_size: int = 512) -> tf.data.Dataset:
         def as_supervised(sample):
-            start_value = self.tokenizer.token_to_id(self.start_token) if self.start_token in self.vocabulary else None
-            end_value = self.tokenizer.token_to_id(self.end_token) if self.end_token in self.vocabulary else None
-            pad_value = self.tokenizer.token_to_id(self.pad_token) if self.pad_token in self.vocabulary else None
-            packer = layers.StartEndPacker(sequence_length=self.sequence_length, start_value=start_value,
-                                           end_value=end_value, pad_value=pad_value)
-            token_ids = packer(self.tokenizer(sample))
-            return token_ids, ops.pad(token_ids[1:], pad_width=(0, 1), constant_values=pad_value)
+            token_ids = self.packer(self.tokenizer(sample))
+            return token_ids, ops.pad(token_ids[1:], pad_width=(0, 1), constant_values=self.pad_token_id)
 
         dataset = self._configure_vocabulary_dataset(dataset=dataset, min_tokens=min_tokens)
         dataset = dataset.map(as_supervised)
