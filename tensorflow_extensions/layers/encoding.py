@@ -164,6 +164,9 @@ class TokenAndPositionEncoding(keras.layers.Layer):
             z = self._dropout(z, training=training)
         return z
 
+    def compute_mask(self, inputs, mask=None):
+        return self._token_embedding.compute_mask(inputs=inputs, mask=mask)
+
     def compute_output_shape(self, input_shape):
         return self._token_embedding.compute_output_shape(input_shape=input_shape)
 
@@ -224,6 +227,9 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
         if self._dropout is not None:
             z = self._dropout(z, training=training)
         return z
+
+    def compute_mask(self, inputs, mask=None):
+        return self._token_embedding.compute_mask(inputs=inputs, mask=mask)
 
     def compute_output_shape(self, input_shape):
         return self._token_embedding.compute_output_shape(input_shape=input_shape)
