@@ -43,8 +43,6 @@ class Seq2SeqTransformer(Model):
                  embeddings_regularizer=None,
                  embeddings_constraint=None,
                  mask_zero=False,
-                 input_length=None,
-                 sparse=False,
                  rate=None,
                  seed=None,
                  name=None,
@@ -55,29 +53,25 @@ class Seq2SeqTransformer(Model):
                 vocabulary_size=input_vocabulary_size, embedding_dimension=embedding_dimension,
                 max_wavelength=max_wavelength, embeddings_initializer=embeddings_initializer,
                 embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
-                sparse=sparse, rate=rate, seed=seed)
+                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, rate=rate, seed=seed)
         else:
             self.input_embedding = TokenAndPositionEmbedding(
-                sequence_length=sequence_length, vocabulary_size=input_vocabulary_size,
-                embedding_dimension=embedding_dimension, embeddings_initializer=embeddings_initializer,
-                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
-                sparse=sparse, rate=rate, seed=seed)
+                vocabulary_size=input_vocabulary_size, embedding_dimension=embedding_dimension,
+                embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
+                activity_regularizer=activity_regularizer, embeddings_constraint=embeddings_constraint,
+                mask_zero=mask_zero, rate=rate, seed=seed)
         if positional == 'encoding':
             self.output_embedding = TokenAndPositionEncoding(
                 vocabulary_size=output_vocabulary_size, embedding_dimension=embedding_dimension,
                 max_wavelength=max_wavelength, embeddings_initializer=embeddings_initializer,
                 embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
-                sparse=sparse, rate=rate, seed=seed)
+                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, rate=rate, seed=seed)
         else:
             self.output_embedding = TokenAndPositionEmbedding(
-                sequence_length=sequence_length, vocabulary_size=output_vocabulary_size,
-                embedding_dimension=embedding_dimension, embeddings_initializer=embeddings_initializer,
-                embeddings_regularizer=embeddings_regularizer, activity_regularizer=activity_regularizer,
-                embeddings_constraint=embeddings_constraint, mask_zero=mask_zero, input_length=input_length,
-                sparse=sparse, rate=rate, seed=seed)
+                vocabulary_size=output_vocabulary_size, embedding_dimension=embedding_dimension,
+                embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
+                activity_regularizer=activity_regularizer, embeddings_constraint=embeddings_constraint,
+                mask_zero=mask_zero, rate=rate, seed=seed)
         self.transformer = Transformer(
             encoder_units=encoder_units, encoder_num_heads=encoder_num_heads, decoder_units=decoder_units,
             decoder_num_heads=decoder_num_heads, use_bias=use_bias, output_shape=output_shape,
