@@ -3,7 +3,7 @@ import warnings
 import keras
 
 from ..layers.embedding import FixedEmbedding
-from ..layers.encoding import PositionalEmbedding2D
+from ..layers.encoding import PositionEmbedding2D
 from ..layers.mlp import MultiLayerPerceptron
 from ..layers.transformer import Transformer
 from ..losses.hungarian import hungarian_loss
@@ -134,7 +134,7 @@ class DETR(DETRModel):
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
-        self._positional_embedding = PositionalEmbedding2D(
+        self._position_embedding = PositionEmbedding2D(
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
         self._transformer = Transformer(
@@ -173,7 +173,7 @@ class DETR(DETRModel):
     def call(self, inputs, training=None, mask=None):
         x = self._backbone(inputs, training=training)
         x = self._convolution(x)
-        x = self._positional_embedding(x)
+        x = self._position_embedding(x)
         x = self._transformer(inputs=x, outputs=self._query(batch_size=inputs.shape[0]), training=training)
         return {'label': self._label(x), 'bounding_box': self._bounding_box(x)}
 
