@@ -1,19 +1,16 @@
 import keras
 
-from .model import Model
 from ..layers.encoding import TokenAndPositionEncoding, TokenAndPositionEmbedding
 from ..layers.transformer import TransformerDecoder
 
 
 @keras.saving.register_keras_serializable(package='tfe.models')
-class GPT(Model):
+class GPT(keras.Model):
     def __init__(self,
                  vocabulary_size,
-                 sequence_length,
                  embedding_dimension,
                  units,
                  num_heads,
-                 num_decoders,
                  positional='embedding',
                  max_wavelength=10000,
                  use_bias=True,
@@ -58,7 +55,7 @@ class GPT(Model):
                 embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
                 activity_regularizer=activity_regularizer, embeddings_constraint=embeddings_constraint,
                 mask_zero=mask_zero, rate=rate, seed=seed)
-        self._layers = [TransformerDecoder(
+        self.decoder = TransformerDecoder(
             units=units, num_heads=num_heads, use_bias=use_bias, output_shape=output_shape,
             attention_axes=attention_axes, kernel_initializer=kernel_initializer, bias_initializer=bias_initializer,
             kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -66,7 +63,7 @@ class GPT(Model):
             bias_constraint=bias_constraint, activation=activation, axis=axis, epsilon=epsilon, center=center,
             scale=scale, beta_initializer=beta_initializer, gamma_initializer=gamma_initializer,
             beta_regularizer=beta_regularizer, gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint,
-            gamma_constraint=gamma_constraint, rate=rate, seed=seed) for _ in range(num_decoders)]
+            gamma_constraint=gamma_constraint, rate=rate, seed=seed)
         self._posteriors = keras.layers.Dense(
             units=vocabulary_size, activation='softmax', use_bias=use_bias, kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer, bias_regularizer=bias_regularizer,
@@ -75,6 +72,5 @@ class GPT(Model):
 
     def call(self, inputs, training=False, **kwargs):
         x = self._embedding(inputs, training=training)
-        for layer in self._layers:
-            x = layer(x, training=training)
+        x = self.decoder(x, training=training)
         return self._posteriors(x)
