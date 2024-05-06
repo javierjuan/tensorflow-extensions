@@ -30,7 +30,6 @@ if logs_directory.is_dir():
     shutil.rmtree(logs_directory)
 logs_directory.mkdir(parents=True, exist_ok=True)
 
-model_directory = workspace_directory / 'models' / f'{model_name}.keras'
 metrics = [keras.metrics.Precision(), keras.metrics.Recall()]
 callbacks = [keras.callbacks.TensorBoard(log_dir=logs_directory)]
 
@@ -39,4 +38,9 @@ model.build(coco.input_shape(batch_size=batch_size))
 model.summary()
 model.fit(x=coco.train_dataset(batch_size=batch_size, shuffle=shuffle),
           validation_data=coco.validation_dataset(batch_size=batch_size), epochs=epochs, callbacks=callbacks)
-model.save(model_directory)
+
+model_directory = workspace_directory / 'models' / f'{model_name}'
+if model_directory.is_dir():
+    shutil.rmtree(logs_directory)
+model_directory.mkdir(parents=True, exist_ok=True)
+model.save(model_directory / f'{model_name}.keras')
