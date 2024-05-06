@@ -8,24 +8,20 @@ from .patch import PatchExtractor2D
 @keras.saving.register_keras_serializable(package='tfe.layers')
 class PositionEncoding1D(keras.layers.Layer):
     def __init__(self,
+                 embedding_dimension,
                  max_wavelength=10000,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+        self.embedding_dimension = embedding_dimension
         self.max_wavelength = max_wavelength
         self.supports_masking = True
 
-        self._positions_mask = None
-        self._timescales = None
-
-    def build(self, input_shape):
-        embedding_dimension = input_shape[-1]
         timescales = ops.power(ops.cast(1 / self.max_wavelength, dtype=self.compute_dtype),
                                (ops.cast(2 * (ops.arange(embedding_dimension) // 2), self.compute_dtype) /
                                 ops.cast(embedding_dimension, self.compute_dtype)))
         self._timescales = ops.expand_dims(timescales, axis=0)
         self._positions_mask = ops.cast(ops.arange(embedding_dimension) % 2, self.compute_dtype)
-        super().build(input_shape=input_shape)
 
     def compute_output_shape(self, input_shape):
         return input_shape
@@ -39,6 +35,7 @@ class PositionEncoding1D(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
+            'embedding_dimension': self.embedding_dimension,
             'max_wavelength': self.max_wavelength
         })
         return config
@@ -47,25 +44,25 @@ class PositionEncoding1D(keras.layers.Layer):
 @keras.saving.register_keras_serializable(package='tfe.layers')
 class PositionEmbedding1D(keras.layers.Layer):
     def __init__(self,
+                 sequence_length,
+                 embedding_dimension,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  embeddings_constraint=None,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+        self.sequence_length = sequence_length
+        self.embedding_dimension = embedding_dimension
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self._embedding = None
-
-    def build(self, input_shape):
         self._embedding = FixedEmbedding(
-            input_dim=input_shape[-2], output_dim=input_shape[-1],
+            input_dim=sequence_length, output_dim=embedding_dimension,
             embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
             embeddings_constraint=self.embeddings_constraint)
-        super().build(input_shape=input_shape)
 
     def call(self, inputs, **kwargs):
         return self._embedding(batch_size=inputs.shape[0])
@@ -76,6 +73,8 @@ class PositionEmbedding1D(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
+            'sequence_length': self.sequence_length,
+            'embedding_dimension': self.embedding_dimension,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
             'embeddings_constraint': self.embeddings_constraint
@@ -86,25 +85,22 @@ class PositionEmbedding1D(keras.layers.Layer):
 @keras.saving.register_keras_serializable(package='tfe.layers')
 class PositionEmbedding2D(keras.layers.Layer):
     def __init__(self,
+                 shape,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  embeddings_constraint=None,
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
+        self.shape = shape
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
         self.embeddings_constraint = embeddings_constraint
         self.supports_masking = True
 
-        self._embedding = None
-
-    def build(self, input_shape):
         self._embedding = FixedEmbedding(
-            input_dim=input_shape[1] * input_shape[2], output_dim=input_shape[3],
-            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
-            embeddings_constraint=self.embeddings_constraint)
-        super().build(input_shape=input_shape)
+            input_dim=shape[1] * shape[2], output_dim=shape[3], embeddings_initializer=self.embeddings_initializer,
+            embeddings_regularizer=self.embeddings_regularizer, embeddings_constraint=self.embeddings_constraint)
 
     def call(self, inputs, **kwargs):
         return self._embedding(batch_size=inputs.shape[0])
@@ -115,6 +111,7 @@ class PositionEmbedding2D(keras.layers.Layer):
     def get_config(self):
         config = super().get_config()
         config.update({
+            'shape': self.shape,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,
             'embeddings_constraint': self.embeddings_constraint
@@ -151,7 +148,8 @@ class TokenAndPositionEncoding(keras.layers.Layer):
             input_dim=vocabulary_size, output_dim=embedding_dimension, embeddings_initializer=embeddings_initializer,
             embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint,
             mask_zero=mask_zero)
-        self._position_encoding = PositionEncoding1D(max_wavelength=max_wavelength)
+        self._position_encoding = PositionEncoding1D(embedding_dimension=embedding_dimension,
+                                                     max_wavelength=max_wavelength)
         self._add = keras.layers.Add()
         self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
         self.supports_masking = self._token_embedding.supports_masking
@@ -190,6 +188,7 @@ class TokenAndPositionEncoding(keras.layers.Layer):
 class TokenAndPositionEmbedding(keras.layers.Layer):
     def __init__(self,
                  vocabulary_size,
+                 sequence_length,
                  embedding_dimension,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
@@ -201,6 +200,7 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
                  **kwargs):
         super().__init__(name=name, **kwargs)
         self.vocabulary_size = vocabulary_size
+        self.sequence_length = sequence_length
         self.embedding_dimension = embedding_dimension
         self.embeddings_initializer = embeddings_initializer
         self.embeddings_regularizer = embeddings_regularizer
@@ -214,6 +214,7 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
             embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint,
             mask_zero=mask_zero)
         self._position_embedding = PositionEmbedding1D(
+            sequence_length=sequence_length, embedding_dimension=embedding_dimension,
             embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
             embeddings_constraint=embeddings_constraint)
         self._add = keras.layers.Add()
@@ -238,6 +239,7 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
         config = super().get_config()
         config.update({
             'vocabulary_size': self.vocabulary_size,
+            'sequence_length': self.sequence_length,
             'embedding_dimension': self.embedding_dimension,
             'embeddings_initializer': self.embeddings_initializer,
             'embeddings_regularizer': self.embeddings_regularizer,

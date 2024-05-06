@@ -87,19 +87,22 @@ def test_fixed_embedding():
 def test_position_encoding_1d():
     input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionEncoding1D(), layers.PositionEncoding1D, x, input_shape, output_shape)
+    _test_generic_layer(layers.PositionEncoding1D(embedding_dimension=1024), layers.PositionEncoding1D, x, input_shape,
+                        output_shape)
 
 
 def test_position_embedding_1d():
     input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionEmbedding1D(), layers.PositionEmbedding1D, x, input_shape, output_shape)
+    _test_generic_layer(layers.PositionEmbedding1D(sequence_length=512, embedding_dimension=1024),
+                        layers.PositionEmbedding1D, x, input_shape, output_shape)
 
 
 def test_position_embedding_2d():
     input_shape, output_shape = (32, 240, 240, 16), (32, 240 * 240, 16)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionEmbedding2D(), layers.PositionEmbedding2D, x, input_shape, output_shape)
+    _test_generic_layer(layers.PositionEmbedding2D(shape=input_shape), layers.PositionEmbedding2D, x, input_shape,
+                        output_shape)
 
 
 def test_token_position_encoding():
@@ -112,7 +115,8 @@ def test_token_position_encoding():
 def test_token_position_embedding():
     input_shape, output_shape = (32, 512), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=2048, seed=0, dtype=tf.int32)
-    _test_generic_layer(layers.TokenAndPositionEmbedding(vocabulary_size=2048, embedding_dimension=1024),
+    _test_generic_layer(layers.TokenAndPositionEmbedding(vocabulary_size=2048, sequence_length=512,
+                                                         embedding_dimension=1024),
                         layers.TokenAndPositionEmbedding, x, input_shape, output_shape)
 
 
@@ -238,22 +242,22 @@ def test_residual_block():
 def test_transformer_encoder():
     input_shape = (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.TransformerEncoder(units=[512, 256], num_heads=8), layers.TransformerEncoder,
-                        x, input_shape, input_shape)
+    _test_generic_layer(layers.TransformerEncoder(units=[512, 256], num_heads=8, embedding_dimension=1024),
+                        layers.TransformerEncoder, x, input_shape, input_shape)
 
 
 def test_transformer_encoder_layer():
     input_shape = (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.TransformerEncoderLayer(units=512, num_heads=8), layers.TransformerEncoderLayer,
-                        x, input_shape, input_shape)
+    _test_generic_layer(layers.TransformerEncoderLayer(units=512, num_heads=8, embedding_dimension=1024),
+                        layers.TransformerEncoderLayer, x, input_shape, input_shape)
 
 
 def test_transformer_decoder():
     encoder_inputs_shape, decoder_inputs_shape = (32, 512, 1024), (32, 256, 1024)
     x = tf.random.uniform(shape=encoder_inputs_shape, minval=0, maxval=1, seed=0)
     y = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
-    layer = layers.TransformerDecoder(units=[512, 256], num_heads=8)
+    layer = layers.TransformerDecoder(units=[512, 256], num_heads=8, embedding_dimension=1024)
     result = layer(y, encoder_inputs=None)
     assert ops.all(decoder_inputs_shape == result.shape)
     assert ops.all(decoder_inputs_shape == layer.compute_output_shape(decoder_inputs_shape=decoder_inputs_shape,
@@ -272,7 +276,7 @@ def test_transformer_decoder_layer():
     encoder_inputs_shape, decoder_inputs_shape = (32, 512, 1024), (32, 256, 1024)
     x = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
     y = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
-    layer = layers.TransformerDecoderLayer(units=512, num_heads=8)
+    layer = layers.TransformerDecoderLayer(units=512, num_heads=8, embedding_dimension=1024)
     result = layer(y, encoder_inputs=None)
     assert ops.all(decoder_inputs_shape == result.shape)
     assert ops.all(decoder_inputs_shape == layer.compute_output_shape(decoder_inputs_shape=decoder_inputs_shape,
@@ -291,7 +295,7 @@ def test_transformer():
     encoder_inputs_shape, decoder_inputs_shape = (32, 512, 1024), (32, 256, 1024)
     x = tf.random.uniform(shape=encoder_inputs_shape, minval=0, maxval=1, seed=0)
     y = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
-    layer = layers.Transformer(encoder_units=[512, 256], encoder_num_heads=8)
+    layer = layers.Transformer(encoder_units=[512, 256], encoder_num_heads=8, embedding_dimension=1024)
     result = layer(encoder_inputs=x, decoder_inputs=y)
     assert ops.all(decoder_inputs_shape == result.shape)
     assert ops.all(decoder_inputs_shape == layer.compute_output_shape(encoder_inputs_shape=encoder_inputs_shape,
