@@ -5,7 +5,7 @@ from .pooling import ChannelMaxPooling, ChannelAveragePooling
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
-class ConvolutionalAttention2D(keras.layers.Layer):
+class ConvolutionAttention2D(keras.layers.Layer):
     def __init__(self,
                  layer,
                  reduction_factor=8,

@@ -1,6 +1,6 @@
 import keras
 
-from .attention import ConvolutionalAttention2D
+from .attention import ConvolutionAttention2D
 from .residual import Residual2D
 
 
@@ -258,7 +258,7 @@ class ConvolutionEncoder2DLayer(keras.layers.Layer):
             gamma_regularizer=gamma_regularizer, beta_constraint=beta_constraint, gamma_constraint=gamma_constraint,
             axis=axis, rate=rate, seed=seed)
         if attention_reduction_factor is not None and attention_kernel_size is not None:
-            convolution = ConvolutionalAttention2D(
+            convolution = ConvolutionAttention2D(
                 layer=convolution, reduction_factor=attention_reduction_factor, kernel_size=attention_kernel_size,
                 activation=activation, use_bias=use_bias, kernel_initializer=kernel_initializer,
                 bias_initializer=bias_initializer, kernel_regularizer=kernel_regularizer,

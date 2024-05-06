@@ -28,7 +28,7 @@ def test_convolutional_attention():
     input_shape, output_shape = (32, 240, 240, 16), (32, 240, 240, 64)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
     layer = layers.ConvolutionBlock2D(filters=64, kernel_size=(3, 3))
-    _test_generic_layer(layers.ConvolutionalAttention2D(layer=layer), layers.ConvolutionalAttention2D, x, input_shape,
+    _test_generic_layer(layers.ConvolutionAttention2D(layer=layer), layers.ConvolutionAttention2D, x, input_shape,
                         output_shape)
 
 
@@ -84,19 +84,19 @@ def test_fixed_embedding():
     _test_serialization(layer=layer, layer_class=layers.FixedEmbedding)
 
 
-def test_positional_encoding_1d():
+def test_position_encoding_1d():
     input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
     _test_generic_layer(layers.PositionEncoding1D(), layers.PositionEncoding1D, x, input_shape, output_shape)
 
 
-def test_positional_embedding_1d():
+def test_position_embedding_1d():
     input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
     _test_generic_layer(layers.PositionEmbedding1D(), layers.PositionEmbedding1D, x, input_shape, output_shape)
 
 
-def test_positional_embedding_2d():
+def test_position_embedding_2d():
     input_shape, output_shape = (32, 240, 240, 16), (32, 240 * 240, 16)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
     _test_generic_layer(layers.PositionEmbedding2D(), layers.PositionEmbedding2D, x, input_shape, output_shape)
