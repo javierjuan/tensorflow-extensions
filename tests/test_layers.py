@@ -3,7 +3,7 @@ import inspect
 import tensorflow as tf
 from keras import ops
 
-import layers
+from tensorflow_extensions import layers
 
 
 def _test_serialization(layer, layer_class):
@@ -87,19 +87,19 @@ def test_fixed_embedding():
 def test_positional_encoding_1d():
     input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionalEncoding1D(), layers.PositionalEncoding1D, x, input_shape, output_shape)
+    _test_generic_layer(layers.PositionEncoding1D(), layers.PositionEncoding1D, x, input_shape, output_shape)
 
 
 def test_positional_embedding_1d():
     input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionalEmbedding1D(), layers.PositionalEmbedding1D, x, input_shape, output_shape)
+    _test_generic_layer(layers.PositionEmbedding1D(), layers.PositionEmbedding1D, x, input_shape, output_shape)
 
 
 def test_positional_embedding_2d():
     input_shape, output_shape = (32, 240, 240, 16), (32, 240 * 240, 16)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionalEmbedding2D(), layers.PositionalEmbedding2D, x, input_shape, output_shape)
+    _test_generic_layer(layers.PositionEmbedding2D(), layers.PositionEmbedding2D, x, input_shape, output_shape)
 
 
 def test_token_position_encoding():
@@ -250,46 +250,51 @@ def test_transformer_encoder_layer():
 
 
 def test_transformer_decoder():
-    context_shape, input_shape = (32, 512, 1024), (32, 256, 1024)
-    x = tf.random.uniform(shape=context_shape, minval=0, maxval=1, seed=0)
-    y = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
+    encoder_inputs_shape, decoder_inputs_shape = (32, 512, 1024), (32, 256, 1024)
+    x = tf.random.uniform(shape=encoder_inputs_shape, minval=0, maxval=1, seed=0)
+    y = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
     layer = layers.TransformerDecoder(units=[512, 256], num_heads=8)
-    result = layer(y, context=None)
-    assert ops.all(input_shape == result.shape)
-    assert ops.all(input_shape == layer.compute_output_shape(input_shape=input_shape, context_shape=None))
+    result = layer(y, encoder_inputs=None)
+    assert ops.all(decoder_inputs_shape == result.shape)
+    assert ops.all(decoder_inputs_shape == layer.compute_output_shape(decoder_inputs_shape=decoder_inputs_shape,
+                                                                      encoder_inputs_shape=None))
     assert isinstance(layers.TransformerDecoder.from_config(layer.get_config()), layers.TransformerDecoder)
     _test_serialization(layer=layer, layer_class=layers.TransformerDecoder)
-    result = layer(y, context=x)
-    assert ops.all(input_shape == result.shape)
-    assert ops.all(input_shape == layer.compute_output_shape(input_shape=input_shape, context_shape=context_shape))
+    result = layer(y, encoder_inputs=x)
+    assert ops.all(decoder_inputs_shape == result.shape)
+    assert ops.all(decoder_inputs_shape == layer.compute_output_shape(decoder_inputs_shape=decoder_inputs_shape,
+                                                                      encoder_inputs_shape=encoder_inputs_shape))
     assert isinstance(layers.TransformerDecoder.from_config(layer.get_config()), layers.TransformerDecoder)
     _test_serialization(layer=layer, layer_class=layers.TransformerDecoder)
 
 
 def test_transformer_decoder_layer():
-    context_shape, input_shape = (32, 512, 1024), (32, 256, 1024)
-    x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    y = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
+    encoder_inputs_shape, decoder_inputs_shape = (32, 512, 1024), (32, 256, 1024)
+    x = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
+    y = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
     layer = layers.TransformerDecoderLayer(units=512, num_heads=8)
-    result = layer(y, context=None)
-    assert ops.all(input_shape == result.shape)
-    assert ops.all(input_shape == layer.compute_output_shape(input_shape=input_shape, context_shape=None))
+    result = layer(y, encoder_inputs=None)
+    assert ops.all(decoder_inputs_shape == result.shape)
+    assert ops.all(decoder_inputs_shape == layer.compute_output_shape(decoder_inputs_shape=decoder_inputs_shape,
+                                                                      encoder_inputs_shape=None))
     assert isinstance(layers.TransformerDecoderLayer.from_config(layer.get_config()), layers.TransformerDecoderLayer)
     _test_serialization(layer=layer, layer_class=layers.TransformerDecoderLayer)
-    result = layer(y, context=x)
-    assert ops.all(input_shape == result.shape)
-    assert ops.all(input_shape == layer.compute_output_shape(input_shape=input_shape, context_shape=context_shape))
+    result = layer(y, encoder_inputs=x)
+    assert ops.all(decoder_inputs_shape == result.shape)
+    assert ops.all(decoder_inputs_shape == layer.compute_output_shape(decoder_inputs_shape=decoder_inputs_shape,
+                                                                      encoder_inputs_shape=encoder_inputs_shape))
     assert isinstance(layers.TransformerDecoderLayer.from_config(layer.get_config()), layers.TransformerDecoderLayer)
     _test_serialization(layer=layer, layer_class=layers.TransformerDecoderLayer)
 
 
 def test_transformer():
-    input_shape, output_shape = (32, 512, 1024), (32, 256, 1024)
-    x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    y = tf.random.uniform(shape=output_shape, minval=0, maxval=1, seed=0)
+    encoder_inputs_shape, decoder_inputs_shape = (32, 512, 1024), (32, 256, 1024)
+    x = tf.random.uniform(shape=encoder_inputs_shape, minval=0, maxval=1, seed=0)
+    y = tf.random.uniform(shape=decoder_inputs_shape, minval=0, maxval=1, seed=0)
     layer = layers.Transformer(encoder_units=[512, 256], encoder_num_heads=8)
-    result = layer(inputs=x, outputs=y)
-    assert ops.all(output_shape == result.shape)
-    assert ops.all(output_shape == layer.compute_output_shape(input_shape=input_shape, output_shape=output_shape))
+    result = layer(encoder_inputs=x, decoder_inputs=y)
+    assert ops.all(decoder_inputs_shape == result.shape)
+    assert ops.all(decoder_inputs_shape == layer.compute_output_shape(encoder_inputs_shape=encoder_inputs_shape,
+                                                                      decoder_inputs_shape=decoder_inputs_shape))
     assert isinstance(layers.Transformer.from_config(layer.get_config()), layers.Transformer)
     _test_serialization(layer=layer, layer_class=layers.Transformer)

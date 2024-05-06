@@ -2,7 +2,7 @@ import keras
 import tensorflow as tf
 from keras import ops
 
-import layers
+from tensorflow_extensions import layers
 
 
 def test_train_convolutional_classification_model():
