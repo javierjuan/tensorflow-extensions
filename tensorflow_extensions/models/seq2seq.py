@@ -16,7 +16,7 @@ class Seq2SeqTransformer(Model):
                  encoder_num_heads,
                  decoder_units=None,
                  decoder_num_heads=None,
-                 positional='embedding',
+                 position='embedding',
                  max_wavelength=10000,
                  use_bias=True,
                  output_shape=None,
@@ -48,7 +48,7 @@ class Seq2SeqTransformer(Model):
                  name=None,
                  **kwargs):
         super().__init__(name=name, **kwargs)
-        if positional == 'encoding':
+        if position == 'encoding':
             self.input_embedding = TokenAndPositionEncoding(
                 vocabulary_size=input_vocabulary_size, embedding_dimension=embedding_dimension,
                 max_wavelength=max_wavelength, embeddings_initializer=embeddings_initializer,
@@ -60,7 +60,7 @@ class Seq2SeqTransformer(Model):
                 embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
                 activity_regularizer=activity_regularizer, embeddings_constraint=embeddings_constraint,
                 mask_zero=mask_zero, rate=rate, seed=seed)
-        if positional == 'encoding':
+        if position == 'encoding':
             self.output_embedding = TokenAndPositionEncoding(
                 vocabulary_size=output_vocabulary_size, embedding_dimension=embedding_dimension,
                 max_wavelength=max_wavelength, embeddings_initializer=embeddings_initializer,
