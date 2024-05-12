@@ -4,43 +4,38 @@ from pathlib import Path
 
 import keras
 import keras_nlp
-from keras_nlp import tokenizers
+from dotenv import load_dotenv
+from tokenizers import Tokenizer
 
 from tensorflow_extensions.callbacks.text_generator import TopPTextGenerator
-from tensorflow_extensions.datasets import WikiText2
+from tensorflow_extensions.datamanagers import WikiText103Raw
 from tensorflow_extensions.models import GPT
 
-# keras.mixed_precision.set_global_policy('mixed_float16')
+load_dotenv()
 
-p = 10
-epochs = 10
-min_tokens = 5
+keras.mixed_precision.set_global_policy('mixed_float16')
+
+epochs = 30
 batch_size = 64
-lowercase = True
 buffer_size = 512
 model_name = 'gpt'
-strip_accents = True
 learning_rate = 1e-3
-vocabulary_size = 12000
+vocabulary_size = 30000
 dataset_directory = Path(os.environ['DATASET_DIRECTORY'])
 workspace_directory = Path(os.environ['WORKSPACE_DIRECTORY'])
 vocabulary_file_path = dataset_directory / 'vocabulary.txt'
 
-if vocabulary_file_path.exists():
-    vocabulary = WikiText2.load_vocabulary(file_path=vocabulary_file_path)
+tokenizer_path = Path(dataset_directory) / 'tokenizer.json'
+if tokenizer_path.exists():
+    tokenizer = Tokenizer.from_file(str(tokenizer_path))
 else:
-    vocabulary = WikiText2.compute_word_piece_vocabulary(
-        directory=dataset_directory, vocabulary_size=vocabulary_size, min_tokens=min_tokens, lowercase=lowercase,
-        strip_accents=strip_accents, file_path=vocabulary_file_path)
+    tokenizer = WikiText103Raw.train_bpe_tokenizer(vocabulary_size=vocabulary_size, file_path=tokenizer_path)
+wikitext = WikiText103Raw(tokenizer=tokenizer, sequence_length=256)
 
-wikitext = WikiText2(tokenizer=tokenizers.WordPieceTokenizer(
-    vocabulary=vocabulary, lowercase=lowercase, strip_accents=strip_accents, oov_token=WikiText2.oov_token),
-    directory=dataset_directory, sequence_length=128)
+model = GPT(units=[512] * 8, num_heads=8, sequence_length=wikitext.sequence_length, embedding_dimension=768,
+            vocabulary_size=wikitext.vocabulary_size, rate=0.1)
 
-model = GPT(tokenizer=wikitext.tokenizer, packer=wikitext.packer, embedding_dimension=512,
-            units=[256] * 6, num_heads=6, sequence_length=wikitext.sequence_length)
-
-loss = keras.losses.SparseCategoricalCrossentropy()
+loss = keras.losses.SparseCategoricalCrossentropy(ignore_class=wikitext.pad_id)
 optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
 
 logs_directory = workspace_directory / 'logs' / f'{model_name}'
@@ -48,9 +43,10 @@ if logs_directory.is_dir():
     shutil.rmtree(logs_directory)
 logs_directory.mkdir(parents=True, exist_ok=True)
 
-
-metrics = [keras_nlp.metrics.Perplexity(mask_token_id=wikitext.pad_token_id)]
-callbacks = [keras.callbacks.TensorBoard(log_dir=logs_directory), TopPTextGenerator(p=0.5)]
+metrics = [keras.metrics.SparseCategoricalAccuracy(), keras_nlp.metrics.Perplexity(mask_token_id=wikitext.pad_id)]
+callbacks = [keras.callbacks.TensorBoard(log_dir=logs_directory),
+             TopPTextGenerator(tokenizer=wikitext.tokenizer, p=0.7, sequence_length=wikitext.sequence_length,
+                               pad_token=wikitext.pad_token)]
 
 model.compile(optimizer=optimizer, loss=loss, metrics=metrics, run_eagerly=False)
 model.build(wikitext.input_shape(batch_size=batch_size))
