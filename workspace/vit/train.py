@@ -4,7 +4,7 @@ from pathlib import Path
 
 import keras
 
-from tensorflow_extensions.datasets import COCOClassification
+from tensorflow_extensions.datamanagers import COCOClassification
 from tensorflow_extensions.models import ViT
 
 # keras.mixed_precision.set_global_policy('mixed_float16')
