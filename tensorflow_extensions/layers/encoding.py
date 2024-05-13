@@ -24,13 +24,13 @@ class PositionEncoding1D(keras.layers.Layer):
         self._positions_mask = ops.cast(ops.arange(embedding_dimension) % 2, self.compute_dtype)
 
     def compute_output_shape(self, input_shape):
-        return input_shape
+        return input_shape + (self.embedding_dimension,)
 
     def call(self, inputs, **kwargs):
-        positions = ops.arange(inputs.shape[-2], dtype=self.compute_dtype)
+        positions = ops.arange(inputs.shape[-1], dtype=self.compute_dtype)
         angles = ops.expand_dims(positions, axis=1) * self._timescales
         encoding = ops.sin(angles) * (1 - self._positions_mask) + ops.cos(angles) * self._positions_mask
-        return ops.broadcast_to(encoding, shape=inputs.shape)
+        return ops.tile(encoding, repeats=(inputs.shape[0], 1, 1))
 
     def get_config(self):
         config = super().get_config()
@@ -42,7 +42,7 @@ class PositionEncoding1D(keras.layers.Layer):
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
-class PositionEmbedding1D(keras.layers.Layer):
+class PositionEmbedding1D(FixedEmbedding):
     def __init__(self,
                  sequence_length,
                  embedding_dimension,
@@ -51,70 +51,48 @@ class PositionEmbedding1D(keras.layers.Layer):
                  embeddings_constraint=None,
                  name=None,
                  **kwargs):
-        super().__init__(name=name, **kwargs)
+        # Since we are using FixedEmbedding, we are assuming that inputs are dense tensors always padded
+        # (batch_size, sequence_length) shape
+        super().__init__(input_dim=sequence_length, output_dim=embedding_dimension,
+                         embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
+                         embeddings_constraint=embeddings_constraint, name=name, **kwargs)
         self.sequence_length = sequence_length
         self.embedding_dimension = embedding_dimension
-        self.embeddings_initializer = embeddings_initializer
-        self.embeddings_regularizer = embeddings_regularizer
-        self.embeddings_constraint = embeddings_constraint
-        self.supports_masking = True
-
-        self._embedding = FixedEmbedding(
-            input_dim=sequence_length, output_dim=embedding_dimension,
-            embeddings_initializer=self.embeddings_initializer, embeddings_regularizer=self.embeddings_regularizer,
-            embeddings_constraint=self.embeddings_constraint)
-
-    def call(self, inputs, **kwargs):
-        return self._embedding(batch_size=inputs.shape[0])
-
-    def compute_output_shape(self, input_shape):
-        return input_shape
 
     def get_config(self):
         config = super().get_config()
+        config.pop('input_dim')
+        config.pop('output_dim')
         config.update({
             'sequence_length': self.sequence_length,
             'embedding_dimension': self.embedding_dimension,
-            'embeddings_initializer': self.embeddings_initializer,
-            'embeddings_regularizer': self.embeddings_regularizer,
-            'embeddings_constraint': self.embeddings_constraint
         })
         return config
 
 
 @keras.saving.register_keras_serializable(package='tfe.layers')
-class PositionEmbedding2D(keras.layers.Layer):
+class PositionEmbedding2D(FixedEmbedding):
     def __init__(self,
-                 shape,
+                 size,
+                 embedding_dimension,
                  embeddings_initializer='uniform',
                  embeddings_regularizer=None,
                  embeddings_constraint=None,
                  name=None,
                  **kwargs):
-        super().__init__(name=name, **kwargs)
-        self.shape = shape
-        self.embeddings_initializer = embeddings_initializer
-        self.embeddings_regularizer = embeddings_regularizer
-        self.embeddings_constraint = embeddings_constraint
-        self.supports_masking = True
-
-        self._embedding = FixedEmbedding(
-            input_dim=shape[1] * shape[2], output_dim=shape[3], embeddings_initializer=self.embeddings_initializer,
-            embeddings_regularizer=self.embeddings_regularizer, embeddings_constraint=self.embeddings_constraint)
-
-    def call(self, inputs, **kwargs):
-        return self._embedding(batch_size=inputs.shape[0])
-
-    def compute_output_shape(self, input_shape):
-        return input_shape[0], input_shape[1] * input_shape[2], input_shape[3]
+        super().__init__(input_dim=size[1] * size[2], output_dim=embedding_dimension,
+                         embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
+                         embeddings_constraint=embeddings_constraint, name=name, **kwargs)
+        self.size = size
+        self.embedding_dimension = embedding_dimension
 
     def get_config(self):
         config = super().get_config()
+        config.pop('input_dim')
+        config.pop('output_dim')
         config.update({
-            'shape': self.shape,
-            'embeddings_initializer': self.embeddings_initializer,
-            'embeddings_regularizer': self.embeddings_regularizer,
-            'embeddings_constraint': self.embeddings_constraint
+            'size': self.size,
+            'embedding_dimension': self.embedding_dimension,
         })
         return config
 
@@ -156,7 +134,7 @@ class TokenAndPositionEncoding(keras.layers.Layer):
 
     def call(self, inputs, training=False, **kwargs):
         x = self._token_embedding(inputs)
-        y = self._position_encoding(x)
+        y = self._position_encoding(inputs)
         z = self._add([x, y])
         if self._dropout is not None:
             z = self._dropout(z, training=training)
@@ -223,7 +201,7 @@ class TokenAndPositionEmbedding(keras.layers.Layer):
 
     def call(self, inputs, training=False, **kwargs):
         x = self._token_embedding(inputs)
-        y = self._position_embedding(x)
+        y = self._position_embedding(inputs)
         z = self._add([x, y])
         if self._dropout is not None:
             z = self._dropout(z, training=training)
@@ -400,14 +378,14 @@ class PatchAndPositionEmbedding2D(keras.layers.Layer):
             activity_regularizer=activity_regularizer, kernel_constraint=kernel_constraint,
             bias_constraint=bias_constraint)
         self._position_embedding = PositionEmbedding2D(
-            embeddings_initializer=embeddings_initializer, embeddings_regularizer=embeddings_regularizer,
-            embeddings_constraint=embeddings_constraint)
+            size=size, embedding_dimension=embedding_dimension, embeddings_initializer=embeddings_initializer,
+            embeddings_regularizer=embeddings_regularizer, embeddings_constraint=embeddings_constraint)
         self._add = keras.layers.Add()
         self._dropout = keras.layers.Dropout(rate=rate, seed=seed) if rate is not None else None
 
     def call(self, inputs, training=False, **kwargs):
         x = self._patch_embedding(inputs)
-        y = self._position_embedding(x)
+        y = self._position_embedding(inputs)
         # TODO: Revise this
         z = self._add([ops.reshape(x, newshape=[-1, x.shape[1] * x.shape[2], x.shape[3]]), y])
         if self._dropout is not None:
