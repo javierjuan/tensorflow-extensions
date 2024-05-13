@@ -28,14 +28,14 @@ class TextGenerator(keras.callbacks.Callback):
 
 
 class TopKTextGenerator(TextGenerator):
-    def __init__(self, tokenizer: Tokenizer, k: int, sequence_length: int, pad_token: str = '[PAD]',
+    def __init__(self, tokenizer: Tokenizer, sequence_length: int, k: int = 10, pad_token: str = '[PAD]',
                  seed: int | None = None):
         super().__init__(tokenizer=tokenizer, sampler=keras_nlp.samplers.TopKSampler(k=k, seed=seed),
                          sequence_length=sequence_length, pad_token=pad_token)
 
 
 class TopPTextGenerator(TextGenerator):
-    def __init__(self, tokenizer: Tokenizer, p: float, sequence_length: int, pad_token: str = '[PAD]',
-                 seed: int | None = None):
-        super().__init__(tokenizer=tokenizer, sampler=keras_nlp.samplers.TopPSampler(p=p, seed=seed),
+    def __init__(self, tokenizer: Tokenizer, sequence_length: int, p: float = 0.1, k: int | None = None,
+                 pad_token: str = '[PAD]', seed: int | None = None):
+        super().__init__(tokenizer=tokenizer, sampler=keras_nlp.samplers.TopPSampler(p=p, k=k, seed=seed),
                          sequence_length=sequence_length, pad_token=pad_token)
