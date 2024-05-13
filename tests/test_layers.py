@@ -71,38 +71,31 @@ def test_dense_block():
 
 
 def test_fixed_embedding():
-    layer = layers.FixedEmbedding(input_dim=128, output_dim=2048)
-    embedding = layer(batch_size=None)
-    assert ops.all(embedding.shape == tf.TensorShape([128, 2048]))
-    assert ops.all(tf.TensorShape((128, 2048)) == embedding.shape)
-    assert ops.all(tf.TensorShape((128, 2048)) == layer.compute_output_shape(batch_size=None))
-    assert isinstance(layers.FixedEmbedding.from_config(layer.get_config()), layers.FixedEmbedding)
-    embedding = layer(batch_size=32)
-    assert ops.all(tf.TensorShape((32, 128, 2048)) == embedding.shape)
-    assert ops.all(tf.TensorShape((32, 128, 2048)) == layer.compute_output_shape(batch_size=32))
-    assert isinstance(layers.FixedEmbedding.from_config(layer.get_config()), layers.FixedEmbedding)
-    _test_serialization(layer=layer, layer_class=layers.FixedEmbedding)
+    input_shape, output_shape = (32, 128), (32, 128, 256)
+    x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
+    _test_generic_layer(layers.FixedEmbedding(input_dim=128, output_dim=256), layers.FixedEmbedding, x, input_shape,
+                        output_shape)
 
 
 def test_position_encoding_1d():
-    input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
+    input_shape, output_shape = (32, 512), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
     _test_generic_layer(layers.PositionEncoding1D(embedding_dimension=1024), layers.PositionEncoding1D, x, input_shape,
                         output_shape)
 
 
 def test_position_embedding_1d():
-    input_shape, output_shape = (32, 512, 1024), (32, 512, 1024)
+    input_shape, output_shape = (32, 512), (32, 512, 1024)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
     _test_generic_layer(layers.PositionEmbedding1D(sequence_length=512, embedding_dimension=1024),
                         layers.PositionEmbedding1D, x, input_shape, output_shape)
 
 
 def test_position_embedding_2d():
-    input_shape, output_shape = (32, 240, 240, 16), (32, 240 * 240, 16)
+    input_shape, output_shape = (32, 240, 240, 16), (32, 240 * 240, 256)
     x = tf.random.uniform(shape=input_shape, minval=0, maxval=1, seed=0)
-    _test_generic_layer(layers.PositionEmbedding2D(shape=input_shape), layers.PositionEmbedding2D, x, input_shape,
-                        output_shape)
+    _test_generic_layer(layers.PositionEmbedding2D(size=input_shape, embedding_dimension=256),
+                        layers.PositionEmbedding2D, x, input_shape, output_shape)
 
 
 def test_token_position_encoding():
